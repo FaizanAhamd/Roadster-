@@ -1,0 +1,6 @@
+{
+  "name": "Roadster Loop — Night Run",
+  "description": "A cinematic 3D night-time sports car ramp stunt game featuring cold-gas thrusters, loop ramps, flips, and realistic physics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

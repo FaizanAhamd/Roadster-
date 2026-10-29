@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#080d18">
+<meta name="description" content="Roadster Loop — a night-time electric sports car ramp stunt game."><title>Roadster Loop — Night Run</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script defer src="game.js"></script>
+</head>
+<body><main class="shell">
+<header class="topbar"><a class="brand" href="#" aria-label="Roadster Loop home"><span class="brand-mark">R<span>↗</span></span><span>ROADSTER <b>LOOP</b></span></a><div class="top-meta"><span class="live-dot"></span> NIGHT SESSION <span class="divider">/</span> BUILD 01</div><button id="soundToggle" class="icon-btn" aria-label="Toggle sound">♫ <span>SOUND</span></button></header>
+<section class="game-wrap"><div id="gameViewport" class="game-viewport"><canvas id="gameCanvas" aria-label="Roadster Loop game scene"></canvas><div class="sky-grid"></div>
+<div class="hud"><div class="hud-left"><div class="eyebrow">CURRENT RUN</div><div id="phaseLabel" class="phase">READY TO LAUNCH</div></div><div class="hud-right"><div class="hud-stat"><span>SCORE</span><b id="scoreHud">000000</b></div><div class="hud-stat"><span>BEST</span><b id="bestHud">000000</b></div></div></div>
+<div id="countdown" class="countdown hidden"><div class="light-row"><i></i><i></i><i></i><i></i></div><div class="count-copy">WAIT FOR <b>GREEN</b></div><div id="countNumber" class="count-number">04</div></div>
+<div id="centerPrompt" class="center-prompt"><div class="prompt-kicker">THE NIGHT IS YOURS</div><h1>CHASE<br><em>THE LOOP.</em></h1><p>One launch. One impossible ramp.<br>Stick the landing.</p><button id="startBtn" class="primary-btn">START ENGINE <span>↗</span></button><div class="prompt-foot">SPACE / TAP TO LAUNCH</div></div>
+<div id="earlyToast" class="toast hidden">TOO EARLY — WAIT FOR GREEN</div>
+<div id="airHud" class="air-hud hidden"><div><span>ALTITUDE</span><b id="altHud">000 ft</b></div><div><span>AIRTIME</span><b id="airtimeHud">0.0 s</b></div><div class="gas-wrap"><span>THRUSTER GAS</span><div class="gas-track"><i id="gasBar"></i></div></div><div class="air-tip">← → ROTATE <span>SPACE</span> THRUST</div></div>
+<div id="resultOverlay" class="result-overlay hidden"><div class="result-card"><div class="result-top"><span class="eyebrow">RUN COMPLETE</span><span id="newBest" class="best-pill hidden">✦ NEW PERSONAL BEST</span></div><div id="grade" class="grade">S</div><h2 id="resultTitle">CLEAN FLIGHT.</h2><div class="final-score"><span>FINAL SCORE</span><b id="finalScore">0</b></div><div class="metrics"><div><span>REACTION</span><b id="mReaction">0 ms</b></div><div><span>RAMP SPEED</span><b id="mSpeed">90 mph</b></div><div><span>PEAK G</span><b id="mG">0.0 G</b></div><div><span>MAX ALTITUDE</span><b id="mAltitude">0 ft</b></div><div><span>AIRTIME</span><b id="mAir">0.0 s</b></div><div><span>FLIPS / RINGS</span><b id="mFlips">0 / 0</b></div><div><span>TOUCHDOWN</span><b id="mTouch">0 ft/s</b></div><div><span>LANDING</span><b id="mLanding">—</b></div></div><button id="againBtn" class="primary-btn">RUN IT AGAIN <span>↻</span></button></div></div>
+<div class="bottom-hud"><div class="speed-block"><b id="speedHud">000</b><span>MPH</span></div><div class="bottom-center"><span class="tiny-ring">◎</span> <span id="bottomHint">HIT THE GREEN TO BEGIN</span></div><div class="ring-counter"><span>RINGS</span><b id="ringHud">00</b></div></div>
+<div class="touch-controls" id="touchControls" aria-label="Touch game controls"><div class="touch-steer"><button type="button" id="touchLeft" aria-label="Rotate car left">←</button><button type="button" id="touchRight" aria-label="Rotate car right">→</button><small>FLIP</small></div><button type="button" id="touchThrust" aria-label="Launch or fire thruster">GO</button></div>
+</div></section>
+<section class="info-strip"><div class="info-item"><span class="info-icon">01</span><div><b>TIME IT RIGHT</b><p>Launch on green. Faster reflexes mean more speed.</p></div></div><div class="info-item"><span class="info-icon">02</span><div><b>OWN THE AIR</b><p>Rotate with ← →. Tap Space for cold-gas thrust.</p></div></div><div class="info-item"><span class="info-icon">03</span><div><b>STICK THE LANDING</b><p>Stay upright and keep sink speed below 39 ft/s.</p></div></div></section>
+<footer><span>© ROADSTER LOOP · ORIGINAL FAN-MADE GAME</span><span>Unofficial fan game, not affiliated with Tesla.</span><a href="privacy.html">PRIVACY</a></footer>
+</main></body></html>

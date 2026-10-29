@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-dark: #080d18;
+    --panel-dark: #0c121d;
+    --neon-red: #ff3b30;
+    --neon-green: #34d399;
+    --neon-cyan: #71e7ff;
+  }
+
+  body {
+    background-color: var(--bg-dark);
+    color: #f1f6ff;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+.font-mono-tech {
+  font-family: 'DM Mono', monospace;
+}
+
+.font-condensed {
+  font-family: 'Barlow Condensed', 'Inter', sans-serif;
+}
+
+.font-orbitron {
+  font-family: 'Orbitron', 'Barlow Condensed', sans-serif;
+}
+
+/* Red neon bar underline matching screenshots */
+.red-neon-bar {
+  height: 2px;
+  background: #ff3b30;
+  box-shadow: 0 0 18px #ff3b30, 0 0 35px rgba(255, 59, 48, 0.75);
+}
+
+/* Green light glow */
+.green-light-glow {
+  background: #34d399;
+  box-shadow: 0 0 20px #34d399, 0 0 32px rgba(52, 211, 153, 0.85);
+}
+
+/* Red light glow */
+.red-light-glow {
+  background: #ef4444;
+  box-shadow: 0 0 18px #ef4444, 0 0 28px rgba(239, 68, 68, 0.8);
+}
+
+/* Circular gauge animations */
+.gauge-ring {
+  transition: stroke-dashoffset 0.15s ease-out, stroke 0.2s ease;
+}
+
+/* Custom key cap in tutorial */
+.key-cap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 6px;
+  background: #192231;
+  border: 1px solid rgba(160, 185, 220, 0.35);
+  border-radius: 4px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: #dbe8fa;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
+}
