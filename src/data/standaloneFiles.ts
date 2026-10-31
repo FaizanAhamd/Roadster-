@@ -38,7 +38,7 @@ export const standaloneIndexHtml = `<!doctype html>
         <div class="hud-left">
           <div class="eyebrow">SCORE</div>
           <div id="scoreHud" class="big-score">0</div>
-          <div class="best-sub">BEST <span id="bestHud">500</span></div>
+          <div class="best-sub">BEST <span id="bestHud">1,000</span></div>
         </div>
 
         <div class="hud-center">
@@ -68,7 +68,19 @@ export const standaloneIndexHtml = `<!doctype html>
           <i class="light-dot"></i>
           <i class="light-dot"></i>
         </div>
-        <div id="countdownLabel" class="countdown-label">WAIT FOR GREEN</div>
+        <div id="countdownLabel" class="countdown-label">TAP GO ON GREEN</div>
+      </div>
+
+      <!-- Launch Notice Banner -->
+      <div id="launchNotice" class="launch-notice hidden">
+        <span class="launch-title">LAUNCH</span>
+        <span id="launchReactionText" class="launch-sub">Reaction 2.000 s</span>
+      </div>
+
+      <!-- Flip Notice Banner -->
+      <div id="flipNotice" class="flip-notice hidden">
+        <span class="flip-title">FLIP</span>
+        <span class="flip-sub">+1,500 on landing</span>
       </div>
 
       <!-- Early Jump Start Toast -->
@@ -99,7 +111,7 @@ export const standaloneIndexHtml = `<!doctype html>
         <button id="startBtn" class="red-action-btn">START RUN</button>
         <div class="prompt-foot">
           Fly through the light rings for points and a gas refill.<br>
-          Unofficial fan game, not affiliated with Tesla. <a href="privacy.html" class="foot-link">Privacy</a>
+          Unofficial fan game, not affiliated with any car brand. <a href="privacy.html" class="foot-link">Privacy</a>
         </div>
       </div>
 
@@ -113,25 +125,25 @@ export const standaloneIndexHtml = `<!doctype html>
           <div class="score-row">
             <span class="score-sub">SCORE</span>
             <div class="score-value-row">
-              <b id="finalScore">1,000</b>
+              <b id="finalScore">0</b>
               <span id="newBest" class="new-best-pill hidden">NEW BEST</span>
               <span class="res-best">BEST <span id="resBestHud">1,000</span></span>
             </div>
           </div>
 
           <p id="resultDesc" class="result-desc">
-            Roof hit first. Keep rotating until the wheels point at the ground. Flips, altitude and airtime only score when you land it. Rings: 1,000.
+            Wheels down at 111 ft/s, over the 39 ft/s limit. Burn the thrusters earlier to slow the drop. Flips, altitude and airtime only score when you land it. Rings: 0.
           </p>
 
           <div class="metrics-grid">
             <div><span>REACTION</span><b id="mReaction">2.000 s</b></div>
             <div><span>RAMP SPEED</span><b id="mSpeed">80 mph</b></div>
-            <div><span>PEAK G</span><b id="mG">50.7 g</b></div>
-            <div><span>MAX ALTITUDE</span><b id="mAltitude">199 ft</b></div>
-            <div><span>AIRTIME</span><b id="mAir">5.6 s</b></div>
+            <div><span>PEAK G</span><b id="mG">50.5 g</b></div>
+            <div><span>MAX ALTITUDE</span><b id="mAltitude">167 ft</b></div>
+            <div><span>AIRTIME</span><b id="mAir">3.4 s</b></div>
             <div><span>FLIPS</span><b id="mFlips">1</b></div>
-            <div><span>RINGS</span><b id="mRings">2 / 3</b></div>
-            <div><span>TOUCHDOWN</span><b id="mTouch">112 ft/s</b></div>
+            <div><span>RINGS</span><b id="mRings">0 / 3</b></div>
+            <div><span>TOUCHDOWN</span><b id="mTouch">111 ft/s</b></div>
           </div>
 
           <button id="againBtn" class="red-action-btn">RUN IT AGAIN</button>
@@ -164,20 +176,23 @@ export const standaloneIndexHtml = `<!doctype html>
           </div>
         </div>
 
-        <!-- Launch / Thruster Button & Altitude Gauge -->
+        <!-- Launch / Thruster Button & Altitude Gauge with Sink Speed -->
         <div class="action-alt-cluster">
           <button type="button" id="actionBtn" class="big-action-circle" aria-label="Launch or fire thruster">GO</button>
 
-          <div class="circular-pod">
-            <svg class="pod-svg" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="42" class="pod-bg-ring"></circle>
-              <circle cx="50" cy="50" r="42" id="altSvgRing" class="pod-val-ring"></circle>
-            </svg>
-            <div class="pod-inner">
-              <span class="pod-label">ALTITUDE</span>
-              <b id="altVal">0</b>
-              <span class="pod-unit">ft</span>
+          <div class="alt-container">
+            <div class="circular-pod">
+              <svg class="pod-svg" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="42" class="pod-bg-ring"></circle>
+                <circle cx="50" cy="50" r="42" id="altSvgRing" class="pod-val-ring"></circle>
+              </svg>
+              <div class="pod-inner">
+                <span class="pod-label">ALTITUDE</span>
+                <b id="altVal">0</b>
+                <span class="pod-unit">ft</span>
+              </div>
             </div>
+            <span id="sinkBadge" class="sink-badge hidden">SINK 58 FT/S</span>
           </div>
         </div>
       </div>
@@ -211,7 +226,7 @@ export const standaloneIndexHtml = `<!doctype html>
 
   <footer>
     <span>© ROADSTER LOOP · ORIGINAL FAN-MADE GAME</span>
-    <span>Unofficial fan game, not affiliated with Tesla.</span>
+    <span>Unofficial fan game, not affiliated with any car brand.</span>
     <a href="privacy.html">PRIVACY</a>
   </footer>
 </main>
@@ -510,7 +525,7 @@ body {
 /* DRAG STRIP COUNTDOWN (Image 2) */
 .countdown {
   position: absolute;
-  top: 36%;
+  top: 34%;
   left: 50%;
   transform: translate(-50%, -50%);
   display: flex;
@@ -527,7 +542,7 @@ body {
   padding: 12px 24px;
   display: flex;
   gap: 16px;
-  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.85);
 }
 
 .light-dot {
@@ -553,7 +568,7 @@ body {
   font-family: 'DM Mono', monospace;
   font-size: 13px;
   letter-spacing: 3px;
-  color: #93a7c3;
+  color: #cbd9ea;
   margin-top: 14px;
 }
 
@@ -563,7 +578,83 @@ body {
   font-weight: 900;
   letter-spacing: 4px;
   color: white;
-  text-shadow: 0 0 25px rgba(52, 211, 153, 0.8);
+  text-shadow: 0 0 25px rgba(52, 211, 153, 0.85);
+}
+
+/* LAUNCH & FLIP NOTICES */
+.launch-notice, .flip-notice {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.launch-notice {
+  top: 34%;
+}
+
+.launch-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 44px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 0 25px rgba(255, 255, 255, 0.7);
+}
+
+.launch-sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: #cbd9ea;
+  margin-top: 4px;
+}
+
+.flip-notice {
+  top: 30%;
+}
+
+.flip-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 44px;
+  font-weight: 800;
+  color: white;
+  text-shadow: 0 0 25px rgba(113, 231, 255, 0.8);
+}
+
+.flip-sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--cyan);
+  font-weight: bold;
+  margin-top: 2px;
+}
+
+/* SINK BADGE */
+.alt-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.sink-badge {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  font-weight: bold;
+  margin-top: 4px;
+  letter-spacing: 1.5px;
+}
+
+.sink-badge.danger {
+  color: var(--red);
+  text-shadow: 0 0 8px rgba(255, 59, 48, 0.8);
+}
+
+.sink-badge.safe {
+  color: var(--green);
 }
 
 /* TOAST */
@@ -945,7 +1036,7 @@ body {
   width: 96px;
   height: 96px;
   border-radius: 50%;
-  background: rgba(30, 16, 18, 0.9);
+  background: rgba(30, 16, 18, 0.92);
   border: 2px solid var(--red);
   color: white;
   font-family: 'Orbitron', sans-serif;
@@ -1081,7 +1172,7 @@ let run = {
   angle: 0,
   omega: 0,
   prevPitchCos: 1,
-  x: -28,
+  x: -32,
   y: 0.55,
   z: 0,
   vx: 0,
@@ -1095,10 +1186,10 @@ let run = {
   airStart: 0
 };
 
-let sound = true, audioCtx = null, countStart = 0, greenAt = 0, earlyTimer = 0, lockUntil = 0;
+let sound = true, audioCtx = null, countStart = 0, greenAt = 0, earlyTimer = 0, launchNoticeTimer = 0, flipNoticeTimer = 0;
 
 function safeBest() {
-  try { return Number(localStorage.getItem('roadsterLoopBest') || 500); } catch (e) { return 500; }
+  try { return Number(localStorage.getItem('roadsterLoopBest') || 1000); } catch (e) { return 1000; }
 }
 
 function saveBest(n) {
@@ -1125,11 +1216,11 @@ function beep(freq = 600, dur = 0.08, type = 'sine', vol = 0.05) {
 function setup() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x060912);
-  scene.fog = new THREE.FogExp2(0x060912, 0.007);
+  scene.fog = new THREE.FogExp2(0x060912, 0.006);
 
   camera = new THREE.PerspectiveCamera(46, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
-  camera.position.set(-28, 4.2, 11);
-  camera.lookAt(-10, 3, 0);
+  camera.position.set(-40, 3.8, 0);
+  camera.lookAt(-15, 3.0, 0);
 
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setSize(canvas.clientWidth, canvas.clientHeight);
@@ -1145,7 +1236,7 @@ function setup() {
   scene.add(dir);
 
   scene.add(new THREE.PointLight(0x38cfff, 2.0, 75));
-  scene.add(new THREE.PointLight(0xff3b30, 2.2, 70));
+  scene.add(new THREE.PointLight(0xff3b30, 2.4, 70));
 
   buildEnvironment();
   buildSportsCar();
@@ -1161,65 +1252,78 @@ function setup() {
 }
 
 function buildEnvironment() {
-  // Stars
   const starGeo = new THREE.BufferGeometry();
   const starPos = [];
   for (let i = 0; i < 900; i++) {
-    starPos.push((Math.random() - 0.5) * 350, Math.random() * 140 + 5, -Math.random() * 260 - 10);
+    starPos.push((Math.random() - 0.5) * 400, Math.random() * 160 + 5, -Math.random() * 280 - 10);
   }
   starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
   const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xbee3ff, size: 0.24, transparent: true, opacity: 0.85 }));
   scene.add(stars);
 
-  // Ground
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(600, 400), new THREE.MeshStandardMaterial({ color: 0x070b14, roughness: 0.95 }));
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(700, 450), new THREE.MeshStandardMaterial({ color: 0x070b14, roughness: 0.95 }));
   floor.rotation.x = -Math.PI / 2;
-  floor.position.set(0, 0, -40);
+  floor.position.set(20, 0, -40);
   scene.add(floor);
 
-  // Road Track & Red Glowing Edge
   const roadMat = new THREE.MeshStandardMaterial({ color: 0x111925, roughness: 0.72, metalness: 0.18 });
   const neonMat = new THREE.MeshStandardMaterial({ color: 0xff3b30, emissive: 0xff261b, emissiveIntensity: 2.2 });
   const whiteMat = new THREE.MeshStandardMaterial({ color: 0x8ea2bd, emissive: 0x1d2736 });
 
-  const road = new THREE.Mesh(new THREE.BoxGeometry(70, 0.25, 14), roadMat);
-  road.position.set(-39, 0.12, 0);
-  road.receiveShadow = true;
-  scene.add(road);
+  // Approach road
+  const approach = new THREE.Mesh(new THREE.BoxGeometry(76, 0.25, 14), roadMat);
+  approach.position.set(-42, 0.12, 0);
+  approach.receiveShadow = true;
+  scene.add(approach);
 
   for (const z of [-6.85, 6.85]) {
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(70, 0.08, 0.25), neonMat);
-    rail.position.set(-39, 0.26, z);
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(76, 0.08, 0.25), neonMat);
+    rail.position.set(-42, 0.26, z);
     scene.add(rail);
   }
 
-  // Dashed lines
-  for (let x = -68; x < -4; x += 6) {
+  for (let x = -78; x < -4; x += 6) {
     const dash = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.02, 0.22), whiteMat);
     dash.position.set(x, 0.26, 0);
     scene.add(dash);
   }
 
-  // Start Line
   const startLine = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.02, 13), whiteMat);
-  startLine.position.set(-24, 0.26, 0);
+  startLine.position.set(-27, 0.26, 0);
   scene.add(startLine);
 
-  // Curved Wall Ramp
+  // Ramp
   const curvePts = [];
-  for (let i = 0; i <= 60; i++) {
-    const t = i / 60;
-    curvePts.push(new THREE.Vector3(-4 + 15 * t, 0.25 + 28 * (1 - Math.cos(t * Math.PI / 2)), 0));
+  for (let i = 0; i <= 70; i++) {
+    const t = i / 70;
+    curvePts.push(new THREE.Vector3(-4 + 22 * t, 0.25 + 31.5 * (1 - Math.cos(t * Math.PI / 2)), 0));
   }
-  const rampGeo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(curvePts), 60, 7, 4, false);
+  const rampGeo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(curvePts), 70, 7, 4, false);
   rampGeo.scale(1, 0.05, 1);
   scene.add(new THREE.Mesh(rampGeo, roadMat));
 
-  // Glowing Ramp Edge Lines
   const leftPts = curvePts.map(p => new THREE.Vector3(p.x, p.y + 0.15, -6.85));
   const rightPts = curvePts.map(p => new THREE.Vector3(p.x, p.y + 0.15, 6.85));
   scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(leftPts), 60, 0.16, 8, false), neonMat));
   scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(rightPts), 60, 0.16, 8, false), neonMat));
+
+  // Landing Runway
+  const landingRoad = new THREE.Mesh(new THREE.BoxGeometry(160, 0.25, 14), roadMat);
+  landingRoad.position.set(100, 0.12, 0);
+  landingRoad.receiveShadow = true;
+  scene.add(landingRoad);
+
+  for (const z of [-6.85, 6.85]) {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(160, 0.08, 0.25), neonMat);
+    rail.position.set(100, 0.26, z);
+    scene.add(rail);
+  }
+
+  for (let x = 24; x < 178; x += 6) {
+    const dash = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.02, 0.22), whiteMat);
+    dash.position.set(x, 0.26, 0);
+    scene.add(dash);
+  }
 }
 
 function buildSportsCar() {
@@ -1235,7 +1339,6 @@ function buildSportsCar() {
   const rimMat = new THREE.MeshStandardMaterial({ color: 0xa9b7c6, metalness: 0.95, roughness: 0.15 });
   const tailMat = new THREE.MeshStandardMaterial({ color: 0xff2a39, emissive: 0xff1e2f, emissiveIntensity: 2.8 });
 
-  // Body
   const bodyShape = new THREE.Shape();
   bodyShape.moveTo(-2.9, 0.35);
   bodyShape.bezierCurveTo(-2.8, 0.62, -2.1, 0.82, -1.2, 0.88);
@@ -1249,7 +1352,6 @@ function buildSportsCar() {
   bodyGeo.translate(0, 0, -1.025);
   carBody.add(new THREE.Mesh(bodyGeo, bodyMat));
 
-  // Canopy
   const canopyShape = new THREE.Shape();
   canopyShape.moveTo(-1.6, 0.82);
   canopyShape.bezierCurveTo(-1.25, 1.25, -0.85, 1.54, -0.25, 1.56);
@@ -1263,12 +1365,10 @@ function buildSportsCar() {
   canopyGeo.translate(0, 0, -0.76);
   carBody.add(new THREE.Mesh(canopyGeo, glassMat));
 
-  // Tail Light Bar
   const tailBar = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.07, 1.95), tailMat);
   tailBar.position.set(-2.86, 0.54, 0);
   carBody.add(tailBar);
 
-  // Wheels
   wheels = [];
   for (const pos of [{x:-1.75,z:1.05},{x:-1.75,z:-1.05},{x:1.72,z:1.05},{x:1.72,z:-1.05}]) {
     const wg = new THREE.Group();
@@ -1290,14 +1390,15 @@ function buildSportsCar() {
 
 function buildSkyRings() {
   rings = [];
-  const mat = new THREE.MeshStandardMaterial({ color: 0x38cfff, emissive: 0x1dbbee, emissiveIntensity: 2.2, roughness: 0.2 });
-  for (let i = 0; i < 3; i++) {
+  const mat = new THREE.MeshStandardMaterial({ color: 0xff3880, emissive: 0xee2068, emissiveIntensity: 2.4, roughness: 0.2 });
+  const coords = [{ x: 28, y: 42, z: 0 }, { x: 52, y: 52, z: 0 }, { x: 76, y: 38, z: 0 }];
+  coords.forEach((c, idx) => {
     const mesh = new THREE.Mesh(new THREE.TorusGeometry(2.4, 0.18, 10, 32), mat);
-    mesh.position.set(22 + i * 16, 36 + Math.sin(i / 2 * Math.PI) * 14, 0);
+    mesh.position.set(c.x, c.y, c.z);
     mesh.rotation.y = Math.PI / 2;
     scene.add(mesh);
-    rings.push({ mesh, x: mesh.position.x, y: mesh.position.y, got: false });
-  }
+    rings.push({ mesh, x: c.x, y: c.y, got: false });
+  });
 }
 
 function onResize() {
@@ -1322,7 +1423,7 @@ function resetRun() {
     angle: 0,
     omega: 0,
     prevPitchCos: 1,
-    x: -28,
+    x: -32,
     y: 0.55,
     z: 0,
     vx: 0,
@@ -1340,7 +1441,7 @@ function resetRun() {
   carGroup.rotation.set(0, 0, 0);
   carGroup.visible = true;
 
-  rings.forEach((r, idx) => {
+  rings.forEach(r => {
     r.got = false;
     r.mesh.visible = true;
   });
@@ -1358,6 +1459,9 @@ function resetRun() {
   $('resultOverlay').classList.add('hidden');
   $('centerPrompt').classList.add('hidden');
   $('earlyToast').classList.add('hidden');
+  $('launchNotice').classList.add('hidden');
+  $('flipNotice').classList.add('hidden');
+  $('sinkBadge').classList.add('hidden');
 }
 
 function startCountdown() {
@@ -1367,7 +1471,7 @@ function startCountdown() {
   greenAt = countStart + 3200;
 
   $('countdown').classList.remove('hidden');
-  $('countdownLabel').textContent = 'WAIT FOR GREEN';
+  $('countdownLabel').textContent = 'TAP GO ON GREEN';
   $('countdownLabel').className = 'countdown-label';
 
   document.querySelectorAll('.light-dot').forEach(d => {
@@ -1393,13 +1497,20 @@ function triggerLaunch(now) {
       return;
     }
 
-    run.reaction = Math.max(0, Math.round(elapsed - 3200));
-    run.rampSpeed = Math.max(76, Math.min(94, Math.round(92 - (run.reaction / 1000) * 8)));
+    run.reaction = Math.max(0, Math.round(now - greenAt));
+    run.rampSpeed = Math.max(76, Math.min(94, Math.round(92 - (run.reaction / 1000) * 6)));
     run.vx = (run.rampSpeed * 1.46667) * 0.42;
     run.launchTime = now;
 
     state = 'drive';
     $('countdown').classList.add('hidden');
+    $('actionBtn').textContent = 'THRUST';
+
+    // Launch Banner
+    $('launchReactionText').textContent = 'Reaction ' + (run.reaction / 1000).toFixed(3) + ' s';
+    $('launchNotice').classList.remove('hidden');
+    launchNoticeTimer = 2.0;
+
     beep(980, 0.22, 'triangle', 0.12);
     return;
   }
@@ -1467,6 +1578,15 @@ function setupEvents() {
 }
 
 function fixedUpdate(dt, now) {
+  if (launchNoticeTimer > 0) {
+    launchNoticeTimer -= dt;
+    if (launchNoticeTimer <= 0) $('launchNotice').classList.add('hidden');
+  }
+  if (flipNoticeTimer > 0) {
+    flipNoticeTimer -= dt;
+    if (flipNoticeTimer <= 0) $('flipNotice').classList.add('hidden');
+  }
+
   // COUNTDOWN
   if (state === 'count') {
     const elapsed = now - countStart;
@@ -1480,7 +1600,7 @@ function fixedUpdate(dt, now) {
       dots.forEach((d, idx) => {
         d.className = elapsed >= idx * 800 ? 'light-dot red' : 'light-dot';
       });
-      $('countdownLabel').textContent = 'WAIT FOR GREEN';
+      $('countdownLabel').textContent = 'TAP GO ON GREEN';
     }
   }
 
@@ -1504,8 +1624,8 @@ function fixedUpdate(dt, now) {
   if (state === 'ramp') {
     $('speedHud').textContent = String(run.rampSpeed);
     run.x += run.vx * dt * 0.82;
-    const t = Math.min(Math.max((run.x + 4) / 15, 0), 1.0);
-    run.y = 0.55 + 28 * (1 - Math.cos(t * Math.PI * 0.5));
+    const t = Math.min(Math.max((run.x + 4) / 22, 0), 1.0);
+    run.y = 0.55 + 31.5 * (1 - Math.cos(t * Math.PI * 0.5));
     run.angle = t * (Math.PI * 0.52);
 
     carGroup.position.set(run.x, run.y, 0);
@@ -1514,10 +1634,10 @@ function fixedUpdate(dt, now) {
 
     if (t >= 0.98) {
       state = 'air';
-      run.x = 11.2;
-      run.y = 28.5;
-      run.vx = Math.max(16, (run.rampSpeed / 2.237) * 0.82);
-      run.vy = run.vx * 0.95;
+      run.x = 18.2;
+      run.y = 32.2;
+      run.vx = Math.max(18, (run.rampSpeed / 2.237) * 0.85);
+      run.vy = run.vx * 0.98;
       run.angle = 1.35;
       run.omega = 0.8;
       run.airStart = now;
@@ -1543,7 +1663,7 @@ function fixedUpdate(dt, now) {
       run.gas = Math.max(0, run.gas - 0.22 * dt);
       currentG = Math.hypot(thrustX, thrustY) / 9.8 + 1.0;
     } else {
-      currentG = Math.hypot(run.vx * 0.1, run.vy * 0.1) + 1.0;
+      currentG = Math.hypot(run.vx * 0.08, run.vy * 0.08) + 1.0;
     }
     run.peakG = Math.max(run.peakG, currentG);
 
@@ -1556,6 +1676,8 @@ function fixedUpdate(dt, now) {
     if (pitchCos < -0.65 && run.prevPitchCos >= -0.65) {
       run.flips++;
       beep(520, 0.09, 'sine', 0.04);
+      $('flipNotice').classList.remove('hidden');
+      flipNoticeTimer = 1.5;
     }
     run.prevPitchCos = pitchCos;
 
@@ -1564,7 +1686,7 @@ function fixedUpdate(dt, now) {
 
     // Rings
     rings.forEach(r => {
-      if (!r.got && Math.hypot(run.x - r.x, run.y - r.y) < 3.2) {
+      if (!r.got && Math.hypot(run.x - r.x, run.y - r.y) < 3.4) {
         r.got = true;
         r.mesh.visible = false;
         run.rings++;
@@ -1581,6 +1703,16 @@ function fixedUpdate(dt, now) {
     $('ringHud').textContent = run.rings + '/3';
     $('gForceVal').textContent = run.peakG.toFixed(1);
     $('altVal').textContent = String(Math.max(0, Math.round(run.y)));
+
+    // Sink Rate Indicator
+    if (run.vy < 0) {
+      const sinkSpeed = Math.round(Math.abs(run.vy));
+      $('sinkBadge').textContent = 'SINK ' + sinkSpeed + ' FT/S';
+      $('sinkBadge').className = 'sink-badge ' + (sinkSpeed > 39 ? 'danger' : 'safe');
+      $('sinkBadge').classList.remove('hidden');
+    } else {
+      $('sinkBadge').classList.add('hidden');
+    }
 
     // Gauges SVG
     const circ = 2 * Math.PI * 42;
@@ -1617,6 +1749,7 @@ function fixedUpdate(dt, now) {
 
 function showResults(now) {
   $('airStats').classList.add('hidden');
+  $('sinkBadge').classList.add('hidden');
   $('resultOverlay').classList.remove('hidden');
 
   const best = safeBest();
@@ -1629,13 +1762,13 @@ function showResults(now) {
   $('resBestHud').textContent = String(Math.max(best, run.score));
 
   $('resultKicker').textContent = run.landed ? 'TOUCHDOWN' : 'CRASHED';
-  $('resultTitle').textContent = run.landed ? 'CLEAN FLIGHT' : 'WIPEOUT';
+  $('resultTitle').textContent = run.landed ? 'CLEAN LANDING' : 'WIPEOUT';
 
   $('resultDesc').textContent = run.landed
     ? 'All four wheels touched down clean! Soft landing bonus awarded. Flips, airtime, and altitude banked.'
     : (run.touchdownSpeed > 39
-      ? 'Touchdown velocity exceeded safe limits (' + Math.round(run.touchdownSpeed) + ' ft/s). Fire thrusters before contact.'
-      : 'Roof hit first. Keep rotating until the wheels point at the ground.');
+      ? 'Wheels down at ' + Math.round(run.touchdownSpeed) + ' ft/s, over the 39 ft/s limit. Burn the thrusters earlier to slow the drop. Flips, altitude and airtime only score when you land it. Rings: ' + run.rings + '.'
+      : 'Roof hit first. Keep rotating until the wheels point at the ground. Flips, altitude and airtime only score when you land it. Rings: ' + run.rings + '.');
 
   $('mReaction').textContent = (run.reaction / 1000).toFixed(3) + ' s';
   $('mSpeed').textContent = run.rampSpeed + ' mph';
@@ -1658,24 +1791,23 @@ function frame(now) {
     accumulator -= STEP;
   }
 
-  // Smooth camera tracking
-  let targetX = -28, targetY = 4.2, targetZ = 11;
-  let lookX = -10, lookY = 3.0;
+  let targetX = -40, targetY = 3.8, targetZ = 0;
+  let lookX = -15, lookY = 3.0;
 
   if (state === 'count' || state === 'drive') {
-    targetX = run.x - 7.5;
-    targetY = 2.6;
+    targetX = run.x - 8.5;
+    targetY = 3.2;
     targetZ = 0;
-    lookX = run.x + 12;
+    lookX = run.x + 14;
     lookY = 3.2;
   } else if (state === 'ramp') {
-    targetX = run.x - 10;
+    targetX = run.x - 12;
     targetY = Math.max(5, run.y + 4);
-    targetZ = 16;
-    lookX = run.x + 4;
-    lookY = run.y + 3;
+    targetZ = 14;
+    lookX = run.x + 6;
+    lookY = run.y + 4;
   } else if (state === 'air') {
-    targetX = run.x - 14;
+    targetX = run.x - 16;
     targetY = Math.max(8, run.y + 4);
     targetZ = 30;
     lookX = run.x + 3;
@@ -1710,7 +1842,7 @@ export const standaloneReadmeMd = `# Roadster Loop — Night Run
 A cinematic 3D night-time sports car ramp stunt game prototype built with HTML, CSS, JavaScript, and Three.js. The game features realistic procedural vehicle modeling, a giant curved wall ramp, drag-strip countdown lights, cold-gas thrusters, flip stunts, ring collectibles, real-time G-force and altitude gauges, and comprehensive landing physics.
 
 ## Visual & Gameplay Target
-- Exact reproduction of the high-contrast midnight neon racing aesthetic.
+- Exact reproduction of the high-contrast midnight neon racing aesthetic matching reference video.
 - 4-light drag-strip starting tree with sequenced amber/red and all-green launch signaling.
 - Dynamic camera tracking: starts in chase perspective behind the sports car, ascends the vertical ramp, and pulls into a cinematic tracking shot for airborne stunts.
 - Real-time physics engine evaluating pitch rotation, cold-gas thrusters, G-forces, altitude, flip counts, ring pickups, and sink speed touchdown limits (< 39 ft/s).
@@ -1759,7 +1891,7 @@ export const standalonePrivacyHtml = `<!doctype html>
     <p>Roadster Loop is an interactive browser game demo. It does not collect, transmit, or monetize any personal identification or gameplay telemetry.</p>
     <h3 style="color:#fff;margin-top:24px;">Local Storage</h3>
     <p>Personal best scores and sound preferences are stored purely inside your web browser's local storage (<code style="color:#71e7ff;">localStorage</code>). You may clear this data at any time via your browser settings.</p>
-    <p style="margin-top:40px;font-size:11px;color:#71839b;">Unofficial fan game, not affiliated with Tesla.</p>
+    <p style="margin-top:40px;font-size:11px;color:#71839b;">Unofficial fan game, not affiliated with any car brand.</p>
   </article>
 </main>
 </body>

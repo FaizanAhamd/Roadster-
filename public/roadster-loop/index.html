@@ -1,219 +1,33 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#080d18">
-<meta name="description" content="Roadster Loop — a 3D night-time electric sports car ramp stunt game.">
-<title>Roadster Loop — Night Run</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;0,900;1,700&family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script defer src="game.js"></script>
-</head>
-<body>
-<main class="shell">
-  <header class="topbar">
-    <a class="brand" href="#" aria-label="Roadster Loop home">
-      <span class="brand-mark">R<span>↗</span></span>
-      <span>ROADSTER <b>LOOP</b></span>
-    </a>
-    <div class="top-meta">
-      <span class="live-dot"></span> NIGHT SESSION <span class="divider">/</span> BUILD 02
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <button id="soundToggle" class="icon-btn" aria-label="Toggle sound">♫ <span>SOUND</span></button>
-    </div>
-  </header>
-
-  <section class="game-wrap">
-    <div id="gameViewport" class="game-viewport">
-      <canvas id="gameCanvas" aria-label="Roadster Loop game scene"></canvas>
-      <div class="sky-grid"></div>
-
-      <!-- In-Game Top HUD -->
-      <div class="hud">
-        <div class="hud-left">
-          <div class="eyebrow">SCORE</div>
-          <div id="scoreHud" class="big-score">0</div>
-          <div class="best-sub">BEST <span id="bestHud">500</span></div>
-        </div>
-
-        <div class="hud-center">
-          <div class="speed-row">
-            <b id="speedHud">0</b><span>mph</span>
-          </div>
-          <div class="gas-container">
-            <div class="gas-track"><i id="gasBar"></i></div>
-            <span class="gas-label">THRUSTER GAS</span>
-          </div>
-          <div id="airStats" class="air-stats hidden">
-            <div><small>FLIPS</small><b id="flipsHud">0</b></div>
-            <div><small>RINGS</small><b id="ringHud">0/3</b></div>
-          </div>
-        </div>
-
-        <div class="hud-right">
-          <button id="inGameSound" class="round-sound-btn" aria-label="Toggle audio">🔊</button>
-        </div>
-      </div>
-
-      <!-- Drag Strip Countdown Lights -->
-      <div id="countdown" class="countdown hidden">
-        <div class="light-capsule">
-          <i class="light-dot"></i>
-          <i class="light-dot"></i>
-          <i class="light-dot"></i>
-          <i class="light-dot"></i>
-        </div>
-        <div id="countdownLabel" class="countdown-label">WAIT FOR GREEN</div>
-      </div>
-
-      <!-- Early Jump Start Toast -->
-      <div id="earlyToast" class="toast hidden">TOO EARLY — WAIT FOR GREEN!</div>
-
-      <!-- Start Screen Modal (Image 1) -->
-      <div id="centerPrompt" class="title-modal">
-        <div class="kicker">3D · NIGHT RUN · WALL RAMP · COLD-GAS THRUSTERS</div>
-        <h1>ROADSTER<br>LOOP</h1>
-        <div class="red-neon-bar"></div>
-        <p class="desc">Hit the ramp flat out, flip off the curl at the top, then burn the thrusters to set it down on all four wheels.</p>
-        
-        <div class="instruction-table">
-          <div class="inst-row">
-            <span class="inst-col">Launch</span>
-            <p>Go when the last light turns green. A quick reaction means more speed at the ramp.</p>
-          </div>
-          <div class="inst-row">
-            <span class="inst-col">Flip</span>
-            <p><span class="key-cap">←</span> <span class="key-cap">→</span> rotate the car. Every time it passes upside down counts as a flip.</p>
-          </div>
-          <div class="inst-row">
-            <span class="inst-col">Land</span>
-            <p><span class="key-cap">Space</span> fires the thrusters out of the floor. Get upright and slow the drop below 39 ft/s before the wheels touch.</p>
-          </div>
-        </div>
-
-        <button id="startBtn" class="red-action-btn">START RUN</button>
-        <div class="prompt-foot">
-          Fly through the light rings for points and a gas refill.<br>
-          Unofficial fan game, not affiliated with Tesla. <a href="privacy.html" class="foot-link">Privacy</a>
-        </div>
-      </div>
-
-      <!-- Results Screen Modal (Image 4) -->
-      <div id="resultOverlay" class="result-overlay hidden">
-        <div class="result-card">
-          <span id="resultKicker" class="kicker">CRASHED</span>
-          <h2 id="resultTitle">WIPEOUT</h2>
-          <div class="red-neon-bar"></div>
-
-          <div class="score-row">
-            <span class="score-sub">SCORE</span>
-            <div class="score-value-row">
-              <b id="finalScore">1,000</b>
-              <span id="newBest" class="new-best-pill hidden">NEW BEST</span>
-              <span class="res-best">BEST <span id="resBestHud">1,000</span></span>
-            </div>
-          </div>
-
-          <p id="resultDesc" class="result-desc">
-            Roof hit first. Keep rotating until the wheels point at the ground. Flips, altitude and airtime only score when you land it. Rings: 1,000.
-          </p>
-
-          <div class="metrics-grid">
-            <div><span>REACTION</span><b id="mReaction">2.000 s</b></div>
-            <div><span>RAMP SPEED</span><b id="mSpeed">80 mph</b></div>
-            <div><span>PEAK G</span><b id="mG">50.7 g</b></div>
-            <div><span>MAX ALTITUDE</span><b id="mAltitude">199 ft</b></div>
-            <div><span>AIRTIME</span><b id="mAir">5.6 s</b></div>
-            <div><span>FLIPS</span><b id="mFlips">1</b></div>
-            <div><span>RINGS</span><b id="mRings">2 / 3</b></div>
-            <div><span>TOUCHDOWN</span><b id="mTouch">112 ft/s</b></div>
-          </div>
-
-          <button id="againBtn" class="red-action-btn">RUN IT AGAIN</button>
-          <span class="res-foot">Space or Enter restarts</span>
-        </div>
-      </div>
-
-      <!-- Bottom Controls & Gauges (Image 2 & 3) -->
-      <div class="bottom-hud">
-        <!-- G-Force Gauge & Flip Buttons -->
-        <div class="gauge-steer-cluster">
-          <div class="circular-pod" id="gForcePod">
-            <svg class="pod-svg" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="42" class="pod-bg-ring"></circle>
-              <circle cx="50" cy="50" r="42" id="gForceSvgRing" class="pod-val-ring"></circle>
-            </svg>
-            <div class="pod-inner">
-              <span class="pod-label">G-FORCE</span>
-              <b id="gForceVal">1.0</b>
-              <span class="pod-unit">g</span>
-            </div>
-          </div>
-
-          <div class="flip-cluster">
-            <div class="flip-btns">
-              <button type="button" id="touchLeft" aria-label="Rotate car left">←</button>
-              <button type="button" id="touchRight" aria-label="Rotate car right">→</button>
-            </div>
-            <span class="flip-label">FLIP</span>
-          </div>
-        </div>
-
-        <!-- Launch / Thruster Button & Altitude Gauge -->
-        <div class="action-alt-cluster">
-          <button type="button" id="actionBtn" class="big-action-circle" aria-label="Launch or fire thruster">GO</button>
-
-          <div class="circular-pod">
-            <svg class="pod-svg" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="42" class="pod-bg-ring"></circle>
-              <circle cx="50" cy="50" r="42" id="altSvgRing" class="pod-val-ring"></circle>
-            </svg>
-            <div class="pod-inner">
-              <span class="pod-label">ALTITUDE</span>
-              <b id="altVal">0</b>
-              <span class="pod-unit">ft</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Feature Information Section Below Game -->
-  <section class="info-strip">
-    <div class="info-item">
-      <span class="info-icon">01</span>
-      <div>
-        <b>TIME IT RIGHT</b>
-        <p>Launch on green. Faster reflexes mean more speed.</p>
-      </div>
-    </div>
-    <div class="info-item">
-      <span class="info-icon">02</span>
-      <div>
-        <b>OWN THE AIR</b>
-        <p>Rotate with ← →. Tap Space for cold-gas thrust.</p>
-      </div>
-    </div>
-    <div class="info-item">
-      <span class="info-icon">03</span>
-      <div>
-        <b>STICK THE LANDING</b>
-        <p>Stay upright and keep sink speed below 39 ft/s.</p>
-      </div>
-    </div>
-  </section>
-
-  <footer>
-    <span>© ROADSTER LOOP · ORIGINAL FAN-MADE GAME</span>
-    <span>Unofficial fan game, not affiliated with Tesla.</span>
-    <a href="privacy.html">PRIVACY</a>
-  </footer>
-</main>
-</body>
+  <head>
+     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3385240797900631"
+     crossorigin="anonymous"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Roadster Loop — Night Run</title>
+    <meta name="description" content="A cinematic 3D night-time sports car ramp stunt game featuring cold-gas thrusters, loop ramps, flips, and realistic physics." />
+    <meta property="og:title" content="Roadster Loop — Night Run" />
+    <meta property="og:description" content="A cinematic 3D night-time sports car ramp stunt game featuring cold-gas thrusters, loop ramps, flips, and realistic physics." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#ff2a2a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;0,900;1,700&family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@500;700;800;900&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-[#050811] text-[#f1f6ff] overflow-hidden antialiased select-none">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
+  </body>
 </html>

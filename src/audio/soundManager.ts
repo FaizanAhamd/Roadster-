@@ -1,5 +1,5 @@
 /**
- * Procedural Web Audio synthesizer for Roadster Loop.
+ * Procedural Web Audio synthesizer and Haptic Feedback for Roadster Loop.
  * Zero external audio files or network dependencies.
  */
 
@@ -21,7 +21,9 @@ class SoundManager {
 
   private initCtx() {
     if (!this.ctx) {
-      const AudioCtxClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const AudioCtxClass =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (AudioCtxClass) {
         this.ctx = new AudioCtxClass();
       }
@@ -48,6 +50,14 @@ class SoundManager {
     return this.soundEnabled;
   }
 
+  public vibrate(pattern: number | number[]) {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(pattern);
+      } catch {}
+    }
+  }
+
   public beep(freq = 600, dur = 0.08, type: OscillatorType = 'sine', vol = 0.05) {
     if (!this.soundEnabled) return;
     this.initCtx();
@@ -69,20 +79,23 @@ class SoundManager {
 
   public playLightBeep(stage: number) {
     if (stage < 4) {
-      // Amber / red staging tone
       this.beep(460 + stage * 60, 0.09, 'sine', 0.08);
+      this.vibrate(25);
     } else {
-      // Green / GO chime: higher dual chime
+      // Green / GO chime: higher dual chime + prominent vibration
       this.beep(980, 0.22, 'triangle', 0.12);
       setTimeout(() => this.beep(1318, 0.25, 'sine', 0.1), 60);
+      this.vibrate([70, 50, 110]);
     }
   }
 
   public playEarlyBuzzer() {
     this.beep(150, 0.16, 'sawtooth', 0.1);
+    this.vibrate([100, 50, 100]);
   }
 
   public playLaunch() {
+    this.vibrate(60);
     if (!this.soundEnabled) return;
     this.initCtx();
     if (!this.ctx) return;
@@ -108,7 +121,6 @@ class SoundManager {
     if (!this.ctx) return;
 
     try {
-      // Procedural white noise buffer for gas jet hiss
       const bufferSize = this.ctx.sampleRate * 1.5;
       const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
       const output = noiseBuffer.getChannelData(0);
@@ -120,13 +132,11 @@ class SoundManager {
       whiteNoise.buffer = noiseBuffer;
       whiteNoise.loop = true;
 
-      // Filter noise to sound like pressurized cold-gas jet
       const filter = this.ctx.createBiquadFilter();
       filter.type = 'bandpass';
       filter.frequency.setValueAtTime(1200, this.ctx.currentTime);
       filter.Q.setValueAtTime(1.5, this.ctx.currentTime);
 
-      // Low frequency rumble oscillator
       const osc = this.ctx.createOscillator();
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(85, this.ctx.currentTime);
@@ -171,9 +181,11 @@ class SoundManager {
 
   public playFlip() {
     this.beep(520, 0.09, 'sine', 0.04);
+    this.vibrate(35);
   }
 
   public playRing() {
+    this.vibrate([40, 30, 70]);
     if (!this.soundEnabled) return;
     this.initCtx();
     if (!this.ctx) return;
@@ -203,17 +215,19 @@ class SoundManager {
   }
 
   public playTouchdown(isClean: boolean) {
-    if (!this.soundEnabled) return;
-    this.initCtx();
-    if (!this.ctx) return;
-
     if (isClean) {
-      // Victorious major chord
+      this.vibrate([80, 50, 100]);
+      if (!this.soundEnabled) return;
+      this.initCtx();
+      if (!this.ctx) return;
       [523.25, 659.25, 783.99, 1046.5].forEach((f, idx) => {
         setTimeout(() => this.beep(f, 0.32, 'triangle', 0.08), idx * 70);
       });
     } else {
-      // Crash wipeout crunch
+      this.vibrate([180, 80, 240]);
+      if (!this.soundEnabled) return;
+      this.initCtx();
+      if (!this.ctx) return;
       try {
         const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
