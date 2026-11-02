@@ -21,6 +21,14 @@ export interface ScoreBreakdown {
   total: number;
 }
 
+export interface TrajectoryPoint {
+  x: number;
+  y: number;
+  z: number;
+  angle: number;
+  t: number;
+}
+
 export interface RunMetrics {
   reactionMs: number;
   rampSpeedMph: number;
@@ -36,7 +44,10 @@ export interface RunMetrics {
   score: number;
   crashReason: string;
   breakdown: ScoreBreakdown;
+  trajectory?: TrajectoryPoint[];
 }
+
+export type CameraMode = 'chase' | 'mounted' | 'roof' | 'drone';
 
 export interface GameStatus {
   state: GameState;
@@ -47,6 +58,7 @@ export interface GameStatus {
   thrusterGas: number; // 0 to 1
   gForce: number;
   altitudeFt: number;
+  airtimeSec: number;
   sinkSpeedFtS: number;
   flips: number;
   ringsCount: number;
@@ -57,11 +69,13 @@ export interface GameStatus {
   tooEarly: boolean;
   soundEnabled: boolean;
   isPaused: boolean;
-  crashFlash: boolean;
   carColor: CarColor;
   graphicsQuality: GraphicsQuality;
   launchNotice: { visible: boolean; reactionSec: number } | null;
   flipNotice: { visible: boolean; count: number } | null;
+  cameraNotice?: { visible: boolean; modeName: string } | null;
+  cameraMode?: CameraMode;
+  crashFlash?: boolean;
   actionButtonText: 'GO' | 'THRUST';
   metrics: RunMetrics;
 }

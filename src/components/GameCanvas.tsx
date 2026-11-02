@@ -1,7 +1,14 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useImperativeHandle } from 'react';
 import * as THREE from 'three';
-import { CarColor, GameStatus, GraphicsQuality, RingData, RunMetrics, ScoreBreakdown } from '../types';
+import { CameraMode, CarColor, GameStatus, GraphicsQuality, RingData, RunMetrics, ScoreBreakdown, TrajectoryPoint } from '../types';
 import { soundManager } from '../audio/soundManager';
+import { loadRoadsterModel, LoadedRoadsterModel } from '../graphics/carModelLoader';
+import { createCinematicPipeline, CinematicPipeline } from '../graphics/cinematicRenderer';
+import { buildUpgradedStage, StageEnvironmentObjects } from '../graphics/stageEnvironment';
+import { buildCinematicBackdrop, BackdropObjects } from '../graphics/backdropBuilder';
+import { buildStadiumLighting, LightingObjects } from '../graphics/lightingBuilder';
+import { createEffectsSystem, ThrusterEffectsSystem } from '../graphics/effectsBuilder';
+import { createCameraDirector, CameraDirector } from '../graphics/cameraDirector';
 
 interface GameCanvasProps {
   onStatusUpdate: (status: GameStatus) => void;
@@ -17,6 +24,9 @@ export interface GameCanvasHandle {
   setSteer: (dir: number) => void;
   setThrust: (active: boolean) => void;
   restart: () => void;
+  cycleCamera?: () => void;
+  setCameraMode?: (mode: CameraMode) => void;
+  getSnapshotCanvas?: () => HTMLCanvasElement | null;
 }
 
 export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
@@ -28,8 +38,16 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
       renderer: THREE.WebGLRenderer | null;
       scene: THREE.Scene | null;
       camera: THREE.PerspectiveCamera | null;
+      cameraDirector: CameraDirector | null;
+      cinematicPipeline: CinematicPipeline | null;
+      stageEnvironment: StageEnvironmentObjects | null;
+      backdrop: BackdropObjects | null;
+      lighting: LightingObjects | null;
+      effectsSystem: ThrusterEffectsSystem | null;
       carGroup: THREE.Group | null;
       carBodyMesh: THREE.Mesh | null;
+      proceduralCarBody: THREE.Group | null;
+      loadedCarModel: LoadedRoadsterModel | null;
       wheels: THREE.Group[];
       rings: { mesh: THREE.Mesh; data: RingData }[];
       crashParticles: { mesh: THREE.Mesh; vx: number; vy: number; vz: number; life: number; maxLife: number }[];
@@ -85,15 +103,27 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
       launchNoticeTimer: number;
       flipNotice: { visible: boolean; count: number } | null;
       flipNoticeTimer: number;
+      cameraNoticeTimer: number;
       crashBounceCount: number;
       crashTimer: number;
       rolloutTimer: number;
+      trajectoryPoints: TrajectoryPoint[];
+      heroSnapshotCanvas: HTMLCanvasElement | null;
+      trajectorySampleTimer: number;
     }>({
       renderer: null,
       scene: null,
       camera: null,
+      cameraDirector: null,
+      cinematicPipeline: null,
+      stageEnvironment: null,
+      backdrop: null,
+      lighting: null,
+      effectsSystem: null,
       carGroup: null,
       carBodyMesh: null,
+      proceduralCarBody: null,
+      loadedCarModel: null,
       wheels: [],
       rings: [],
       crashParticles: [],
@@ -146,9 +176,13 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
       launchNoticeTimer: 0,
       flipNotice: null,
       flipNoticeTimer: 0,
+      cameraNoticeTimer: 0,
       crashBounceCount: 0,
       crashTimer: 0,
       rolloutTimer: 0,
+      trajectoryPoints: [],
+      heroSnapshotCanvas: null,
+      trajectorySampleTimer: 0,
     });
 
     const safeBest = (): number => {
@@ -168,40 +202,45 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
     // Update car body paint material when carColor changes
     const applyCarColor = (color: CarColor) => {
       const mesh = engineRef.current.carBodyMesh;
-      if (!mesh) return;
-      const mat = mesh.material as THREE.MeshStandardMaterial;
-      if (!mat) return;
-
-      if (color === 'red') {
-        mat.color.setHex(0xd81f2a);
-        mat.metalness = 0.88;
-        mat.roughness = 0.22;
-      } else if (color === 'black') {
-        mat.color.setHex(0x181a20);
-        mat.metalness = 0.92;
-        mat.roughness = 0.16;
-      } else {
-        // bright silver/white body matching reference
-        mat.color.setHex(0xf8fafc);
-        mat.metalness = 0.88;
-        mat.roughness = 0.12;
+      if (mesh) {
+        const mat = mesh.material as THREE.MeshStandardMaterial;
+        if (mat) {
+          if (color === 'red') {
+            mat.color.setHex(0xd81f2a);
+            mat.metalness = 0.88;
+            mat.roughness = 0.22;
+          } else if (color === 'black') {
+            mat.color.setHex(0x181a20);
+            mat.metalness = 0.92;
+            mat.roughness = 0.16;
+          } else {
+            // bright silver/white body matching reference
+            mat.color.setHex(0xf8fafc);
+            mat.metalness = 0.88;
+            mat.roughness = 0.12;
+          }
+        }
       }
+      engineRef.current.loadedCarModel?.applyCarColor(color);
     };
 
     useEffect(() => {
       applyCarColor(carColor);
     }, [carColor]);
 
-    // Update renderer settings when graphicsQuality changes
+    // Update renderer and cinematic pipeline settings when graphicsQuality changes
     useEffect(() => {
       const eng = engineRef.current;
-      if (!eng.renderer) return;
-      if (graphicsQuality === 'high') {
-        eng.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        eng.renderer.shadowMap.enabled = true;
-      } else {
-        eng.renderer.setPixelRatio(1);
-        eng.renderer.shadowMap.enabled = false;
+      if (eng.cinematicPipeline) {
+        eng.cinematicPipeline.setQuality(graphicsQuality);
+      } else if (eng.renderer) {
+        if (graphicsQuality === 'high') {
+          eng.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+          eng.renderer.shadowMap.enabled = true;
+        } else {
+          eng.renderer.setPixelRatio(1);
+          eng.renderer.shadowMap.enabled = false;
+        }
       }
     }, [graphicsQuality]);
 
@@ -280,6 +319,18 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
 
       restart: () => {
         refActiveStart();
+      },
+
+      cycleCamera: () => {
+        engineRef.current.cameraDirector?.cycleMode();
+      },
+
+      setCameraMode: (mode: CameraMode) => {
+        engineRef.current.cameraDirector?.setMode(mode);
+      },
+
+      getSnapshotCanvas: () => {
+        return engineRef.current.heroSnapshotCanvas;
       },
     }));
 
@@ -364,6 +415,9 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
       eng.crashBounceCount = 0;
       eng.crashTimer = 0;
       eng.rolloutTimer = 0;
+      eng.trajectoryPoints = [];
+      eng.heroSnapshotCanvas = null;
+      eng.trajectorySampleTimer = 0;
 
       // Snap camera behind car lower-left (car fills ~35% width, Screenshot 2 / Frame 2)
       eng.cameraTargetPos.set(eng.x - 14, 4.2, 4.2);
@@ -423,6 +477,9 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
         eng.wheelSmokeTimer = 0;
         if (eng.carChassisGroup) {
           eng.carChassisGroup.position.y = 0;
+        }
+        if (eng.loadedCarModel) {
+          eng.loadedCarModel.root.position.y = 0;
         }
       }
     };
@@ -585,49 +642,117 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
       engineRef.current.scene = scene;
       engineRef.current.camera = camera;
 
-      // 4. Lighting Rig (Much BRIGHTER midnight stadium lighting + strong rim light)
-      const hemiLight = new THREE.HemisphereLight(0xb4d4f8, 0x141c2c, 2.0);
-      scene.add(hemiLight);
+      // 3.5. Build Cinematic Camera Director (Chase, Mounted, Roof, Drone)
+      const cameraDirector = createCameraDirector({
+        camera,
+        initialMode: 'chase',
+        onModeChange: (mode, modeName) => {
+          statusRef.current.cameraMode = mode;
+          statusRef.current.cameraNotice = { visible: true, modeName };
+          engineRef.current.cameraNoticeTimer = 1.6;
+          updateStatus();
+        },
+      });
+      engineRef.current.cameraDirector = cameraDirector;
+      statusRef.current.cameraMode = 'chase';
 
-      const mainLight = new THREE.DirectionalLight(0xf2f7ff, 2.8);
-      mainLight.position.set(-50, 90, 60);
-      mainLight.castShadow = graphicsQuality === 'high';
-      mainLight.shadow.mapSize.width = 1024;
-      mainLight.shadow.mapSize.height = 1024;
-      mainLight.shadow.camera.near = 1;
-      mainLight.shadow.camera.far = 300;
-      mainLight.shadow.camera.left = -120;
-      mainLight.shadow.camera.right = 120;
-      mainLight.shadow.camera.top = 120;
-      mainLight.shadow.camera.bottom = -120;
-      scene.add(mainLight);
+      // 4. Build Stadium Lighting System (Towers, tripods, volumetric beams, sky searchlights & real 3D lights)
+      const lighting = buildStadiumLighting({
+        scene,
+        quality: graphicsQuality,
+      });
+      engineRef.current.lighting = lighting;
+      engineRef.current.searchlights = lighting.searchlights;
 
-      // Strong Rim Light behind car so it never turns dark in air or on track
-      const rimLight = new THREE.DirectionalLight(0xffffff, 3.2);
-      rimLight.position.set(-30, 75, -80);
-      scene.add(rimLight);
+      // 5. Build Cinematic Backdrop (Deep midnight sky dome, stars, distant hills & test-site silhouettes)
+      const backdrop = buildCinematicBackdrop({
+        scene,
+        quality: graphicsQuality,
+      });
+      engineRef.current.backdrop = backdrop;
 
-      // RED accent point lights
-      const neonRed1 = new THREE.PointLight(0xff2a55, 3.5, 140);
-      neonRed1.position.set(-40, 24, 0);
-      scene.add(neonRed1);
-
-      const neonRed2 = new THREE.PointLight(0xff2a55, 3.0, 140);
-      neonRed2.position.set(100, 35, 0);
-      scene.add(neonRed2);
-
-      // 5. Build Environment (runway, ramp, support tower, landing road, grandstands, searchlights)
+      // 6. Build Environment (runway, ramp, support tower, landing road, grandstands)
       buildEnvironment(scene, engineRef.current);
 
-      // 6. Build High-Fidelity Sports Car
+      // 7. Build Cold-Gas Thrusters & Ground Vapor Effects System
+      const effectsSystem = createEffectsSystem({
+        scene,
+        quality: graphicsQuality,
+      });
+      engineRef.current.effectsSystem = effectsSystem;
+
+      // 8. Build High-Fidelity Sports Car (procedural fallback initially)
       buildSportsCar(scene, engineRef.current);
       applyCarColor(carColor);
+
+      // Asynchronously load the official Roadster GLB model
+      loadRoadsterModel('/models/roadster.glb')
+        .then((loadedModel) => {
+          const eng = engineRef.current;
+          if (!eng.scene || !eng.carGroup) {
+            loadedModel.dispose();
+            return;
+          }
+          // Hide procedural car body and procedural wheels
+          if (eng.proceduralCarBody) {
+            eng.proceduralCarBody.visible = false;
+          }
+          eng.wheels.forEach((w) => {
+            w.visible = false;
+          });
+
+          // Add GLB model into carGroup
+          eng.carGroup.add(loadedModel.root);
+          loadedModel.applyCarColor(carColor);
+          eng.loadedCarModel = loadedModel;
+        })
+        .catch((err) => {
+          console.warn('[Roadster] GLB model load failed, using procedural car fallback:', err);
+        });
 
       // 7. Build Sky Rings along the real 3D stunt parabolic arc
       buildSkyRings(scene, engineRef.current);
 
-      // 8. Event Listeners for Keyboard Controls
+      // 8. Initialize Cinematic Pipeline (HDR EffectComposer, UnrealBloomPass, OutputPass, Planar Wet Reflections)
+      const cinematicPipeline = createCinematicPipeline({
+        renderer,
+        scene,
+        camera,
+        width,
+        height,
+        quality: graphicsQuality,
+      });
+      engineRef.current.cinematicPipeline = cinematicPipeline;
+
+      // 9. Event Listeners for Keyboard Controls
       const handleKeyDown = (e: KeyboardEvent) => {
+        // Camera switching shortcuts (C: cycle, 1: chase, 2: mounted, 3: roof/first-person, 4: drone)
+        if (e.code === 'KeyC') {
+          e.preventDefault();
+          engineRef.current.cameraDirector?.cycleMode();
+          return;
+        }
+        if (e.code === 'Digit1') {
+          e.preventDefault();
+          engineRef.current.cameraDirector?.setMode('chase');
+          return;
+        }
+        if (e.code === 'Digit2') {
+          e.preventDefault();
+          engineRef.current.cameraDirector?.setMode('mounted');
+          return;
+        }
+        if (e.code === 'Digit3') {
+          e.preventDefault();
+          engineRef.current.cameraDirector?.setMode('roof');
+          return;
+        }
+        if (e.code === 'Digit4') {
+          e.preventDefault();
+          engineRef.current.cameraDirector?.setMode('drone');
+          return;
+        }
+
         const state = statusRef.current.state;
         if (state === 'crashed' || state === 'landed') {
           // Controls disabled during crash and rollout simulation
@@ -734,6 +859,9 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
         renderer.setSize(w, h);
+        if (engineRef.current.cinematicPipeline) {
+          engineRef.current.cinematicPipeline.setSize(w, h);
+        }
       };
       window.addEventListener('resize', handleResize);
 
@@ -798,12 +926,44 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
           (p.mesh.material as THREE.Material).dispose();
         });
         eng.crashParticles = [];
+        if (eng.loadedCarModel) {
+          eng.loadedCarModel.dispose();
+          eng.loadedCarModel = null;
+        }
+        if (eng.cinematicPipeline) {
+          eng.cinematicPipeline.dispose();
+          eng.cinematicPipeline = null;
+        }
+        if (eng.stageEnvironment) {
+          eng.stageEnvironment.dispose();
+          eng.stageEnvironment = null;
+        }
+        if (eng.backdrop) {
+          eng.backdrop.dispose();
+          eng.backdrop = null;
+        }
+        if (eng.lighting) {
+          eng.lighting.dispose();
+          eng.lighting = null;
+        }
+        if (eng.effectsSystem) {
+          eng.effectsSystem.dispose();
+          eng.effectsSystem = null;
+        }
+        if (eng.cameraDirector) {
+          eng.cameraDirector.dispose();
+          eng.cameraDirector = null;
+        }
         renderer.dispose();
         if (container.contains(renderer.domElement)) {
           container.removeChild(renderer.domElement);
         }
       };
     }, []);
+
+    useEffect(() => {
+      engineRef.current.effectsSystem?.setQuality(graphicsQuality);
+    }, [graphicsQuality]);
 
     // Helper to get 4 wheel contact coordinates in world space
     const getWheelContactPositions = (eng: typeof engineRef.current) => {
@@ -1017,6 +1177,7 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
         eng.wheels.forEach((w) => {
           w.rotation.z -= eng.vx * dt * 0.8;
         });
+        eng.loadedCarModel?.spinWheels(eng.vx * dt);
 
         // Chase camera tracking car smoothly towards ramp
         eng.cameraTargetPos.set(eng.x - 16, 4.6, 3.5);
@@ -1060,9 +1221,11 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
           eng.carGroup.rotation.z = eng.angle;
         }
 
+        const rampStepDist = (eng.rampSpeed * 1.46667) * dt;
         eng.wheels.forEach((w) => {
-          w.rotation.z -= (eng.rampSpeed * 1.46667) * dt * 0.8;
+          w.rotation.z -= rampStepDist * 0.8;
         });
+        eng.loadedCarModel?.spinWheels(rampStepDist);
 
         // Camera locked directly behind car along ramp tangent (no sideways view)
         const camDist = 20;
@@ -1237,6 +1400,9 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
             // Wheel contact smoke burst and dust
             spawnWheelSmokeBurst(1.4);
 
+            // Ground vapor cloud billowing across tarmac
+            eng.effectsSystem?.triggerLanding(new THREE.Vector3(eng.x, 0.25, 0), Math.max(0.6, eng.touchdownSpeed / 39));
+
             const breakdown = calculateBreakdown(
               true,
               eng.ringsCollected,
@@ -1293,6 +1459,9 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
             // Burst of 80-120 orange-white sparks at impact, fragments, dust & smoke puffs
             spawnCrashExplosion();
 
+            // Ground vapor cloud billowing across tarmac
+            eng.effectsSystem?.triggerLanding(new THREE.Vector3(eng.x, 0.25, 0), 1.5);
+
             // Main bounce 1: 6–10 ft rise (restitution ~0.25). (19.5^2)/64.4 = 5.9 ft, (24.5^2)/64.4 = 9.3 ft
             eng.vy = Math.min(24.5, Math.max(19.5, eng.touchdownSpeed * 0.25));
             eng.omega = Math.random() > 0.5 ? 4.8 : -4.8;
@@ -1345,6 +1514,9 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
         if (eng.carChassisGroup) {
           eng.carChassisGroup.position.y = -eng.suspensionCompression;
         }
+        if (eng.loadedCarModel) {
+          eng.loadedCarModel.root.position.y = -eng.suspensionCompression;
+        }
 
         if (eng.carGroup) {
           eng.carGroup.position.set(eng.x, eng.y, eng.z);
@@ -1354,6 +1526,7 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
         eng.wheels.forEach((w) => {
           w.rotation.z -= eng.vx * dt * 0.8;
         });
+        eng.loadedCarModel?.spinWheels(eng.vx * dt);
 
         // Subtle wheel smoke trail during high speed rollout
         if (current.speedMph > 20) {
@@ -1459,18 +1632,43 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
       const eng = engineRef.current;
       if (!eng.renderer || !eng.scene || !eng.camera) return;
 
-      const smoothFactor = Math.min(1.0, dt * 4.6);
-      eng.camera.position.lerp(eng.cameraTargetPos, smoothFactor);
+      // Update transient camera mode notice banner timer
+      if (eng.cameraNoticeTimer > 0) {
+        eng.cameraNoticeTimer -= dt;
+        if (eng.cameraNoticeTimer <= 0 && statusRef.current.cameraNotice) {
+          statusRef.current.cameraNotice = null;
+          updateStatus();
+        }
+      }
 
-      const currentLook = new THREE.Vector3();
-      eng.camera.getWorldDirection(currentLook);
-      const targetLook = eng.cameraTargetLook.clone().sub(eng.camera.position).normalize();
-      currentLook.lerp(targetLook, smoothFactor);
-      eng.camera.lookAt(eng.camera.position.clone().add(currentLook.multiplyScalar(30)));
+      // Drive camera pose via cameraDirector (Chase, Mounted, Roof, Drone)
+      if (eng.cameraDirector) {
+        eng.cameraDirector.update({
+          dt,
+          now,
+          state: statusRef.current.state,
+          carPosition: eng.carGroup ? eng.carGroup.position : new THREE.Vector3(eng.x, eng.y, eng.z),
+          carRotationZ: eng.angle,
+          carGroup: eng.carGroup,
+          speedMph: statusRef.current.speedMph,
+          currentG: eng.currentG,
+          thrustActive: eng.thrustInput && eng.thrusterGas > 0,
+          screenShake: eng.screenShake,
+          chaseTargetPos: eng.cameraTargetPos,
+          chaseTargetLook: eng.cameraTargetLook,
+        });
+      } else {
+        const smoothFactor = Math.min(1.0, dt * 4.6);
+        eng.camera.position.lerp(eng.cameraTargetPos, smoothFactor);
+
+        const currentLook = new THREE.Vector3();
+        eng.camera.getWorldDirection(currentLook);
+        const targetLook = eng.cameraTargetLook.clone().sub(eng.camera.position).normalize();
+        currentLook.lerp(targetLook, smoothFactor);
+        eng.camera.lookAt(eng.camera.position.clone().add(currentLook.multiplyScalar(30)));
+      }
 
       if (eng.screenShake > 0) {
-        eng.camera.position.x += (Math.random() - 0.5) * eng.screenShake * 1.8;
-        eng.camera.position.y += (Math.random() - 0.5) * eng.screenShake * 1.8;
         eng.screenShake = Math.max(0, eng.screenShake - dt * 2.4);
       }
 
@@ -1478,10 +1676,21 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
         eng.stars.rotation.y += dt * 0.003;
       }
 
-      // Subtle searchlight sweeps
-      eng.searchlights.forEach((beam, idx) => {
-        const offset = idx * 1.5;
-        beam.rotation.z = Math.PI / 4 + Math.sin(now * 0.0008 + offset) * 0.12;
+      // Update upgraded stage environment, cinematic backdrop, and stadium lighting
+      eng.stageEnvironment?.update(dt, now);
+      eng.backdrop?.update(dt, now);
+      eng.lighting?.update(dt, now);
+
+      // Update cold-gas thrusters, supersonic jet cores, and ground vapor cloud
+      eng.effectsSystem?.update(dt, {
+        thrustActive: eng.thrustInput,
+        thrusterGas: eng.thrusterGas,
+        carPosition: eng.carGroup ? eng.carGroup.position : new THREE.Vector3(eng.x, eng.y, eng.z),
+        carRotationZ: eng.angle,
+        altitudeFt: eng.y,
+        anchors: eng.loadedCarModel?.nozzleAnchors,
+        carGroup: eng.carGroup,
+        camera: eng.camera,
       });
 
       // Update smoke puffs
@@ -1541,66 +1750,16 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
         return true;
       });
 
-      eng.renderer.render(eng.scene, eng.camera);
+      if (eng.cinematicPipeline) {
+        eng.cinematicPipeline.render(dt);
+      } else if (eng.renderer && eng.scene && eng.camera) {
+        eng.renderer.render(eng.scene, eng.camera);
+      }
     };
 
-    // Cold-Gas Thruster Plumes: white-grey smoke puffs and small white sparks (no orange cones!)
+    // Upgraded cold-gas thruster plumes are rendered through effectsSystem (supersonic jet core + billowing vapor)
     const spawnThrusterPlumes = () => {
-      const eng = engineRef.current;
-      if (!eng.scene || !eng.carGroup) return;
-
-      const nozzleOffset = new THREE.Vector3(
-        -Math.sin(eng.angle) * 1.2,
-        -Math.cos(eng.angle) * 1.2,
-        0
-      );
-      const spawnPos = eng.carGroup.position.clone().add(nozzleOffset);
-
-      // 1. White-grey smoke puff
-      const puffGeo = new THREE.SphereGeometry(0.35, 6, 6);
-      const puffMat = new THREE.MeshBasicMaterial({
-        color: 0xe2ebf5,
-        transparent: true,
-        opacity: 0.65,
-        depthWrite: false,
-      });
-      const puffMesh = new THREE.Mesh(puffGeo, puffMat);
-      puffMesh.position.copy(spawnPos);
-      eng.scene.add(puffMesh);
-
-      const ejectSpeed = 18 + Math.random() * 12;
-      const ejectDir = new THREE.Vector3(-Math.sin(eng.angle), -Math.cos(eng.angle), (Math.random() - 0.5) * 0.4);
-      eng.smokePuffs.push({
-        mesh: puffMesh,
-        vx: ejectDir.x * ejectSpeed + (Math.random() - 0.5) * 4,
-        vy: ejectDir.y * ejectSpeed,
-        vz: ejectDir.z * ejectSpeed,
-        life: 0.38,
-        maxLife: 0.38,
-        baseScale: 0.45,
-      });
-
-      // 2. White bright sparks
-      for (let i = 0; i < 3; i++) {
-        const sparkGeo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
-        const sparkMat = new THREE.MeshBasicMaterial({
-          color: 0xffffff,
-          transparent: true,
-          opacity: 0.95,
-        });
-        const sparkMesh = new THREE.Mesh(sparkGeo, sparkMat);
-        sparkMesh.position.copy(spawnPos);
-        eng.scene.add(sparkMesh);
-
-        eng.sparks.push({
-          mesh: sparkMesh,
-          vx: ejectDir.x * ejectSpeed * 1.2 + (Math.random() - 0.5) * 10,
-          vy: ejectDir.y * ejectSpeed * 1.2 + (Math.random() - 0.5) * 8,
-          vz: (Math.random() - 0.5) * 6,
-          life: 0.22,
-          maxLife: 0.22,
-        });
-      }
+      // Handled directly by effectsSystem in renderFrame (supersonic jet core, shock diamonds & vapor plumes)
     };
 
     // Continuous scrape sparks when car skids on tarmac
@@ -1942,38 +2101,18 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
       const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
       shadowMesh.rotation.x = -Math.PI / 2;
       shadowMesh.position.set(0, 0.02, 0);
-      carBody.add(shadowMesh);
+      carGroup.add(shadowMesh);
 
       eng.carGroup = carGroup;
       eng.carChassisGroup = carBody;
+      eng.proceduralCarBody = carBody;
       eng.wheels = wheels;
       carGroup.position.set(eng.x, eng.y, eng.z);
     };
 
-    // Build Road, Neon Edges, Wall Ramp, Concrete Support Tower, Landing Runway, and Track Scenery
+    // Build Ground Floor, Upgraded Stage, and Stadium Stands
     const buildEnvironment = (scene: THREE.Scene, eng: typeof engineRef.current) => {
-      // 1. Star Field
-      const starGeo = new THREE.BufferGeometry();
-      const starPos = [];
-      for (let i = 0; i < 1100; i++) {
-        starPos.push(
-          (Math.random() - 0.5) * 800,
-          Math.random() * 260 + 10,
-          -Math.random() * 400 - 20
-        );
-      }
-      starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
-      const starMat = new THREE.PointsMaterial({
-        color: 0xd0e2f5,
-        size: 0.26,
-        transparent: true,
-        opacity: 0.9,
-      });
-      const stars = new THREE.Points(starGeo, starMat);
-      scene.add(stars);
-      eng.stars = stars;
-
-      // 2. Infinite Ground Floor
+      // 1. Infinite Ground Floor
       const groundFloor = new THREE.Mesh(
         new THREE.PlaneGeometry(1200, 700),
         new THREE.MeshStandardMaterial({
@@ -1987,220 +2126,16 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
       groundFloor.receiveShadow = true;
       scene.add(groundFloor);
 
-      // Materials
-      const roadMat = new THREE.MeshStandardMaterial({
-        color: 0x9c9ba5, // Light grey road (#9c9ba5) fading into dark midnight sky
-        roughness: 0.52,
-        metalness: 0.12,
-      });
-
-      const neonEdgeMat = new THREE.MeshStandardMaterial({
-        color: 0xff2a55, // Glowing RED-PINK neon strips
-        emissive: 0xff1a40,
-        emissiveIntensity: 3.5,
-      });
-
-      const whiteMarkMat = new THREE.MeshStandardMaterial({
-        color: 0xf4f8ff,
-        emissive: 0x303e54,
-      });
-
-      const concreteTowerMat = new THREE.MeshStandardMaterial({
-        color: 0x161e2a,
-        roughness: 0.88,
-        metalness: 0.15,
-      });
-
       const roadWidth = 20;
 
-      // 3. Approach Runway (from x = -300 to x = -80)
-      const approachLength = 220;
-      const approachRoad = new THREE.Mesh(
-        new THREE.BoxGeometry(approachLength, 0.25, roadWidth),
-        roadMat
-      );
-      approachRoad.position.set(-190, 0.12, 0);
-      approachRoad.receiveShadow = true;
-      scene.add(approachRoad);
-
-      // Glowing RED-PINK neon edge rails on approach
-      for (const z of [-roadWidth / 2 + 0.2, roadWidth / 2 - 0.2]) {
-        const edgeLine = new THREE.Mesh(
-          new THREE.BoxGeometry(approachLength, 0.1, 0.3),
-          neonEdgeMat
-        );
-        edgeLine.position.set(-190, 0.26, z);
-        scene.add(edgeLine);
-      }
-
-      // Dashed white center line on approach
-      for (let x = -295; x < -82; x += 8) {
-        const dash = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.02, 0.3), whiteMarkMat);
-        dash.position.set(x, 0.26, 0);
-        scene.add(dash);
-      }
-
-      // White painted start line right in front of car at starting line
-      const startLine = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.02, roadWidth - 1), whiteMarkMat);
-      startLine.position.set(-250, 0.26, 0);
-      scene.add(startLine);
-
-      // 4. Single Curved Wall Ramp (from x = -80 to x = 0, rising to y = 35 ft at launch lip)
-      const rampCurvePts: THREE.Vector3[] = [];
-      const steps = 70;
-      for (let i = 0; i <= steps; i++) {
-        const t = i / steps;
-        const rx = -80 * (1 - t);
-        const ry = 0.25 + 34.75 * (1 - Math.cos(t * 0.55 * Math.PI));
-        rampCurvePts.push(new THREE.Vector3(rx, ry, 0));
-      }
-
-      const rampPath = new THREE.CatmullRomCurve3(rampCurvePts);
-      const rampGeo = new THREE.TubeGeometry(rampPath, 70, roadWidth / 2, 4, false);
-      rampGeo.scale(1, 0.05, 1);
-      const rampMesh = new THREE.Mesh(rampGeo, new THREE.MeshStandardMaterial({
-        color: 0x9c9ba5, // Pale grey surface matching prompt
-        roughness: 0.52,
-        metalness: 0.14,
-      }));
-      rampMesh.receiveShadow = true;
-      scene.add(rampMesh);
-
-      // Glowing RED-PINK edge rails curving up the ramp
-      const leftCurvePts = rampCurvePts.map((p) => new THREE.Vector3(p.x, p.y + 0.18, -roadWidth / 2 + 0.2));
-      const rightCurvePts = rampCurvePts.map((p) => new THREE.Vector3(p.x, p.y + 0.18, roadWidth / 2 - 0.2));
-
-      const leftEdgeTube = new THREE.Mesh(
-        new THREE.TubeGeometry(new THREE.CatmullRomCurve3(leftCurvePts), 60, 0.22, 8, false),
-        neonEdgeMat
-      );
-      const rightEdgeTube = new THREE.Mesh(
-        new THREE.TubeGeometry(new THREE.CatmullRomCurve3(rightCurvePts), 60, 0.22, 8, false),
-        neonEdgeMat
-      );
-      scene.add(leftEdgeTube);
-      scene.add(rightEdgeTube);
-
-      // White lane marks up the ramp
-      for (let i = 5; i < steps - 3; i += 7) {
-        const p = rampCurvePts[i];
-        const nextP = rampCurvePts[i + 1];
-        const dir = nextP.clone().sub(p).normalize();
-        const dash = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.05, 0.3), whiteMarkMat);
-        dash.position.set(p.x, p.y + 0.15, 0);
-        dash.rotation.z = Math.atan2(dir.y, dir.x);
-        scene.add(dash);
-      }
-
-      // Concrete support tower structure behind ramp lip
-      const tower = new THREE.Mesh(new THREE.BoxGeometry(18, 36, roadWidth + 6), concreteTowerMat);
-      tower.position.set(9, 17.5, 0);
-      tower.castShadow = true;
-      tower.receiveShadow = true;
-      scene.add(tower);
-
-      // Steel truss bracing under ramp
-      for (let i = 0; i < 3; i++) {
-        const strut = new THREE.Mesh(new THREE.BoxGeometry(1.5, 30 - i * 8, 1.5), concreteTowerMat);
-        strut.position.set(-20 - i * 22, 14 - i * 4, 0);
-        scene.add(strut);
-      }
-
-      // 5. Large Landing Road beyond ramp (from x = 0 to x = 650 ft)
-      const landingLength = 650;
-      const landingRoad = new THREE.Mesh(
-        new THREE.BoxGeometry(landingLength, 0.25, roadWidth),
-        roadMat
-      );
-      landingRoad.position.set(325, 0.12, 0);
-      landingRoad.receiveShadow = true;
-      scene.add(landingRoad);
-
-      // Glowing RED-PINK edge rails on landing road
-      for (const z of [-roadWidth / 2 + 0.2, roadWidth / 2 - 0.2]) {
-        const edgeLine = new THREE.Mesh(
-          new THREE.BoxGeometry(landingLength, 0.1, 0.3),
-          neonEdgeMat
-        );
-        edgeLine.position.set(325, 0.26, z);
-        scene.add(edgeLine);
-      }
-
-      for (let x = 12; x < 640; x += 8) {
-        const dash = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.02, 0.3), whiteMarkMat);
-        dash.position.set(x, 0.26, 0);
-        scene.add(dash);
-      }
-
-      // Visible Landing Zone Target Area (painted stripes & red horizon edge line at x = 240 - 360 ft)
-      for (let lzX = 240; lzX <= 360; lzX += 16) {
-        const lzStripe = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.03, roadWidth - 2), whiteMarkMat);
-        lzStripe.position.set(lzX, 0.27, 0);
-        scene.add(lzStripe);
-      }
-
-      // Red horizon stop line across end of landing track
-      const horizonLine = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.04, roadWidth), neonEdgeMat);
-      horizonLine.position.set(645, 0.28, 0);
-      scene.add(horizonLine);
-
-      // 6. Streetlight Poles with bright white heads and large soft halos along runway & landing road
-      const lampHaloCanvas = document.createElement('canvas');
-      lampHaloCanvas.width = 128;
-      lampHaloCanvas.height = 128;
-      const lhctx = lampHaloCanvas.getContext('2d');
-      if (lhctx) {
-        const lhgrad = lhctx.createRadialGradient(64, 64, 4, 64, 64, 64);
-        lhgrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-        lhgrad.addColorStop(0.2, 'rgba(235, 245, 255, 0.65)');
-        lhgrad.addColorStop(0.55, 'rgba(180, 215, 255, 0.25)');
-        lhgrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        lhctx.fillStyle = lhgrad;
-        lhctx.fillRect(0, 0, 128, 128);
-      }
-      const lampHaloTex = new THREE.CanvasTexture(lampHaloCanvas);
-      const haloSpriteMat = new THREE.SpriteMaterial({
-        map: lampHaloTex,
-        blending: THREE.AdditiveBlending,
-        transparent: true,
-        opacity: 0.85,
-        depthWrite: false,
+      // 2. Upgraded Architectural Stage Environment (Curved Concrete Ramp, Batched Steel Trusses & Tower, Asphalt Runway & Landing Area)
+      eng.stageEnvironment = buildUpgradedStage({
+        scene,
+        quality: graphicsQuality,
+        roadWidth,
       });
 
-      for (let i = 0; i < 18; i++) {
-        const xPos = -280 + i * 50;
-        const poleZ = -roadWidth / 2 - 5;
-
-        const pole = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.18, 0.25, 16, 8),
-          new THREE.MeshStandardMaterial({ color: 0x4a5a6e, metalness: 0.8, roughness: 0.4 })
-        );
-        pole.position.set(xPos, 8, poleZ);
-        scene.add(pole);
-
-        const lamp = new THREE.Mesh(
-          new THREE.BoxGeometry(1.8, 0.5, 0.9),
-          new THREE.MeshBasicMaterial({
-            color: 0xffffff,
-          })
-        );
-        lamp.position.set(xPos, 16, poleZ + 1.2);
-        scene.add(lamp);
-
-        // Large soft white halo
-        const haloSprite = new THREE.Sprite(haloSpriteMat);
-        haloSprite.position.set(xPos, 16.2, poleZ + 1.2);
-        haloSprite.scale.set(7.5, 7.5, 1);
-        scene.add(haloSprite);
-
-        const spot = new THREE.SpotLight(0xdbe9f8, 3.8, 65, Math.PI / 4, 0.5, 1);
-        spot.position.set(xPos, 16, poleZ + 1.2);
-        spot.target.position.set(xPos, 0, 0);
-        scene.add(spot);
-        scene.add(spot.target);
-      }
-
-      // 7. Tiered Stadium Stands (#2b303b) with thousands of tiny white spectator lights on BOTH sides
+      // 3. Tiered Stadium Stands (#2b303b) with thousands of tiny white spectator lights on BOTH sides
       const standMat = new THREE.MeshStandardMaterial({
         color: 0x2b303b, // Tiered stadium stands #2b303b
         roughness: 0.82,
@@ -2256,27 +2191,6 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
       });
       const spectators = new THREE.Points(spectatorGeo, spectatorMat);
       scene.add(spectators);
-
-      // 8. Faint thin diagonal searchlight beams (additive blending, low opacity)
-      eng.searchlights = [];
-      const beamGeo = new THREE.CylinderGeometry(0.35, 4.0, 260, 16, 1, true);
-      const beamMat = new THREE.MeshBasicMaterial({
-        color: 0x8ec2ff,
-        transparent: true,
-        opacity: 0.06,
-        blending: THREE.AdditiveBlending,
-        side: THREE.DoubleSide,
-        depthWrite: false,
-      });
-
-      for (let i = 0; i < 4; i++) {
-        const beam = new THREE.Mesh(beamGeo, beamMat);
-        beam.position.set(-80 + i * 120, 85, -60);
-        beam.rotation.z = Math.PI / 4.5;
-        beam.rotation.x = -0.15;
-        scene.add(beam);
-        eng.searchlights.push(beam);
-      }
     };
 
     // Exactly 3 Large Thin Glowing Pink-Red Rings (~15 ft radius) with Soft Halo along Stunt Arc

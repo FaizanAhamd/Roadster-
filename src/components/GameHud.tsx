@@ -388,6 +388,16 @@ export const GameHud: React.FC<GameHudProps> = ({
         </div>
       )}
 
+      {/* CAMERA MODE CHANGE TOAST: subtle, sleek monospace toast badge */}
+      {status.cameraNotice && (
+        <div className="absolute top-[13%] left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1 bg-[#0b1019]/85 border border-[#2a3c54]/80 rounded-full backdrop-blur-md pointer-events-none opacity-90 transition-opacity z-20 shadow-lg">
+          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+          <span className="text-[11px] sm:text-xs font-mono-tech tracking-[0.25em] text-[#dbe8fa] uppercase font-bold">
+            {status.cameraNotice.modeName}
+          </span>
+        </div>
+      )}
+
       {/* TOO EARLY JUMP START TOAST */}
       {status.tooEarly && (
         <div className="absolute top-[24%] left-1/2 -translate-x-1/2 bg-[#3b1216] border border-[#ff2a2a] text-[#fca5a5] px-4 py-2 rounded text-xs sm:text-sm font-mono-tech tracking-wider shadow-[0_0_25px_rgba(255,42,42,0.5)] pointer-events-none animate-bounce z-30">
