@@ -14,13 +14,25 @@
     height: 100%;
     margin: 0;
     padding: 0;
-    overflow: hidden;
+    overflow: hidden !important;
     background-color: var(--bg-dark);
     color: #f1f6ff;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    touch-action: manipulation;
+    touch-action: none !important;
     -webkit-user-select: none;
     user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* Completely remove scrollbars across all browsers */
+  * {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+  *::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
   }
 }
 

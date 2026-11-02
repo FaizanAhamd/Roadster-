@@ -93,6 +93,7 @@ export default function App() {
     tooEarly: false,
     soundEnabled: soundManager.isEnabled(),
     isPaused: false,
+    crashFlash: false,
     carColor,
     graphicsQuality,
     sinkSpeedFtS: 0,

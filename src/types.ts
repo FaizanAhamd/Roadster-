@@ -57,6 +57,7 @@ export interface GameStatus {
   tooEarly: boolean;
   soundEnabled: boolean;
   isPaused: boolean;
+  crashFlash: boolean;
   carColor: CarColor;
   graphicsQuality: GraphicsQuality;
   launchNotice: { visible: boolean; reactionSec: number } | null;

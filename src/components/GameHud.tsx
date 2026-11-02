@@ -7,8 +7,9 @@ import {
   Share2,
   Settings,
   HelpCircle,
-  ArrowLeft,
-  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal,
   Sparkles,
   Award,
 } from 'lucide-react';
@@ -47,6 +48,7 @@ export const GameHud: React.FC<GameHudProps> = ({
   onOpenPrivacy,
 }) => {
   const [soundOn, setSoundOn] = useState(soundManager.isEnabled());
+  const [showMenu, setShowMenu] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showTutorial, setShowTutorial] = useState(() => {
     try {
@@ -73,7 +75,7 @@ export const GameHud: React.FC<GameHudProps> = ({
   const isAir = status.state === 'air';
   const isCountdown = status.state === 'count';
   const isTitle = status.state === 'title';
-  const isResults = status.state === 'results' || status.state === 'landed' || status.state === 'crashed';
+  const isResults = status.state === 'results';
 
   // Circular gauge calculations (real units: g ranges 0..6, alt ranges 0..180)
   const gRatio = Math.min(Math.max(status.gForce / 6.0, 0), 1);
@@ -189,17 +191,22 @@ export const GameHud: React.FC<GameHudProps> = ({
 
   return (
     <div className="absolute inset-0 pointer-events-none select-none z-10 flex flex-col justify-between pt-[max(0.6rem,env(safe-area-inset-top))] pb-[max(0.6rem,env(safe-area-inset-bottom))] px-3 sm:px-5 md:px-6">
+      {/* Red flash/vignette on crash impact (lasts 0.15s) */}
+      {status.crashFlash && (
+        <div className="fixed inset-0 pointer-events-none z-40 bg-[radial-gradient(circle_at_center,rgba(255,42,42,0.18)_0%,rgba(255,42,42,0.65)_100%)] transition-opacity duration-150" />
+      )}
+
       {/* 1. TOP HUD BAR (Matching Screenshot 2 & 3, fully responsive at 360px) */}
       <div className="flex justify-between items-start w-full pointer-events-auto">
-        {/* Top Left: Score & Best */}
+        {/* Top Left: Large SCORE number (~28px) & BEST small under it */}
         <div className="flex flex-col shrink-0 min-w-[70px]">
-          <span className="text-[9px] sm:text-xs font-mono-tech tracking-[0.2em] text-[#8a9bb5]">
+          <span className="text-[10px] font-mono-tech tracking-[0.2em] text-[#8a9bb5]">
             SCORE
           </span>
-          <div className="text-2xl sm:text-4xl font-condensed font-bold tracking-tight text-white leading-none mt-0.5 drop-shadow">
+          <div className="text-[28px] sm:text-3xl font-condensed font-bold tracking-tight text-white leading-none mt-0.5 drop-shadow">
             {status.score.toLocaleString('en-US')}
           </div>
-          <span className="text-[9px] sm:text-xs font-mono-tech tracking-wider text-[#687b94] mt-1">
+          <span className="text-[10px] sm:text-[11px] font-mono-tech tracking-wider text-[#687b94] mt-1">
             BEST {status.bestScore.toLocaleString('en-US')}
           </span>
         </div>
@@ -227,16 +234,16 @@ export const GameHud: React.FC<GameHudProps> = ({
             </span>
           </div>
 
-          {/* Flips & Rings Counters when launched */}
-          {(isAir || status.state === 'drive' || status.state === 'ramp') && (
-            <div className="flex justify-between w-full mt-1 text-[9px] sm:text-xs font-mono-tech text-[#dbe8fa] tracking-wider px-1">
+          {/* Flips & Rings Counters when launched, airborne, crashing or landed (~14px) */}
+          {(isAir || status.state === 'drive' || status.state === 'ramp' || status.state === 'crashed' || status.state === 'landed') && (
+            <div className="flex justify-between w-full mt-1 text-[13px] sm:text-sm font-mono-tech text-[#dbe8fa] tracking-wider px-2">
               <div className="flex flex-col items-center">
-                <span className="text-[#8a9bb5] text-[7px] sm:text-[8px]">FLIPS</span>
-                <span className="font-bold text-xs sm:text-sm">{status.flips}</span>
+                <span className="text-[#8a9bb5] text-[8px] tracking-wider">FLIPS</span>
+                <span className="font-bold text-[13px] sm:text-sm">{status.flips}</span>
               </div>
               <div className="flex flex-col items-center">
-                <span className="text-[#8a9bb5] text-[7px] sm:text-[8px]">RINGS</span>
-                <span className="font-bold text-xs sm:text-sm">
+                <span className="text-[#8a9bb5] text-[8px] tracking-wider">RINGS</span>
+                <span className="font-bold text-[13px] sm:text-sm">
                   {status.ringsCount} / {status.totalRings}
                 </span>
               </div>
@@ -244,53 +251,83 @@ export const GameHud: React.FC<GameHudProps> = ({
           )}
         </div>
 
-        {/* Top Right: Compact Icons (Help, Settings, Pause, Sound) - never overlap speed or gas bar */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-          <button
-            type="button"
-            onClick={() => setShowTutorial(true)}
-            title="Help / Tutorial"
-            aria-label="Help"
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#0c121d]/90 border border-[#253952] hover:border-[#ff2a2a] text-[#b8c9df] hover:text-[#ff2a2a] flex items-center justify-center transition-all cursor-pointer shadow-md"
-          >
-            <HelpCircle size={14} />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowSettings(true)}
-            title="Settings (Car Color & Quality)"
-            aria-label="Settings"
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#0c121d]/90 border border-[#253952] hover:border-[#ff2a2a] text-[#b8c9df] hover:text-[#ff2a2a] flex items-center justify-center transition-all cursor-pointer shadow-md"
-          >
-            <Settings size={14} />
-          </button>
-
-          <button
-            type="button"
-            onClick={onTogglePause}
-            title={isPaused ? 'Resume Game' : 'Pause Game'}
-            aria-label={isPaused ? 'Resume' : 'Pause'}
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#0c121d]/90 border border-[#253952] hover:border-[#ff2a2a] text-[#b8c9df] hover:text-[#ff2a2a] flex items-center justify-center transition-all cursor-pointer shadow-md"
-          >
-            {isPaused ? <Play size={14} /> : <Pause size={14} />}
-          </button>
-
+        {/* Top Right: Only a small sound icon plus one '⋯' menu button */}
+        <div className="flex items-center gap-1.5 shrink-0 relative">
           <button
             type="button"
             onClick={toggleSound}
             title={soundOn ? 'Mute Sound' : 'Enable Sound'}
             aria-label={soundOn ? 'Mute Sound' : 'Enable Sound'}
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#0c121d]/90 border border-[#253952] hover:border-[#ff2a2a] text-[#b8c9df] hover:text-[#ff2a2a] flex items-center justify-center transition-all cursor-pointer shadow-md"
+            className="w-8 h-8 rounded-full bg-[#0c121d]/90 border border-[#253952] hover:border-[#ff2a2a] text-[#b8c9df] hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-md"
           >
-            {soundOn ? <Volume2 size={14} /> : <VolumeX size={14} className="text-[#ff2a2a]" />}
+            {soundOn ? <Volume2 size={16} /> : <VolumeX size={16} className="text-[#ff2a2a]" />}
           </button>
+
+          <button
+            type="button"
+            onClick={() => setShowMenu((prev) => !prev)}
+            title="Options Menu"
+            aria-label="Menu"
+            className="w-8 h-8 rounded-full bg-[#0c121d]/90 border border-[#253952] hover:border-[#ff2a2a] text-[#b8c9df] hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-md"
+          >
+            <MoreHorizontal size={18} />
+          </button>
+
+          {/* Clean glass dropdown menu */}
+          {showMenu && (
+            <div className="absolute right-0 top-10 w-44 bg-[#0a101a]/95 border border-[#253952] rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.85)] p-2 z-50 flex flex-col gap-1 backdrop-blur-md">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false);
+                  onTogglePause();
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-mono-tech text-white hover:bg-[#1a2536] rounded-lg transition-colors text-left"
+              >
+                {isPaused ? <Play size={14} className="text-[#34d399]" /> : <Pause size={14} className="text-[#cbd9ea]" />}
+                <span>{isPaused ? 'Resume Run' : 'Pause Game'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false);
+                  setShowTutorial(true);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-mono-tech text-white hover:bg-[#1a2536] rounded-lg transition-colors text-left"
+              >
+                <HelpCircle size={14} className="text-[#cbd9ea]" />
+                <span>How to Play</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false);
+                  setShowSettings(true);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-mono-tech text-white hover:bg-[#1a2536] rounded-lg transition-colors text-left"
+              >
+                <Settings size={14} className="text-[#cbd9ea]" />
+                <span>Settings</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMenu(false);
+                  onRestart();
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-mono-tech text-[#ff5454] hover:bg-[#2b1014] rounded-lg transition-colors text-left"
+              >
+                <Sparkles size={14} />
+                <span>Restart Run</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 2. CENTER DRAG-STRIP COUNTDOWN LIGHTS (Screenshot 2) */}
+      {/* 2. CENTER DRAG-STRIP COUNTDOWN LIGHTS (Matching Frame 2 & 3) */}
       {isCountdown && (
-        <div className="absolute top-[32%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-auto">
+        <div className="absolute top-[30%] sm:top-[32%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-auto">
           {/* Dark Pill Capsule */}
           <div className="bg-[#080f1b]/95 border border-[#253952] rounded-full px-4 sm:px-5 py-2.5 sm:py-3 shadow-[0_10px_35px_rgba(0,0,0,0.85)] backdrop-blur-sm flex items-center gap-3 sm:gap-4">
             {[1, 2, 3, 4].map((stageNum) => {
@@ -312,71 +349,112 @@ export const GameHud: React.FC<GameHudProps> = ({
             })}
           </div>
 
-          {/* Subtext below lights matching requirements */}
+          {/* Subtext below lights: "TAP GO ON GREEN", then "GO" in small faint wide-spaced text */}
           <div className="mt-3 text-center">
             {status.isGreen ? (
-              <span className="text-3xl sm:text-5xl font-orbitron font-extrabold tracking-widest text-white drop-shadow-[0_0_20px_rgba(52,211,153,0.85)] animate-pulse">
-                GO!
+              <span className="text-xs sm:text-sm font-mono-tech font-bold tracking-[0.35em] text-white/80">
+                GO
               </span>
             ) : (
-              <div className="flex flex-col items-center">
-                <span className="text-xs sm:text-sm font-mono-tech tracking-[0.25em] text-[#cbd9ea] font-semibold">
-                  WAIT FOR GREEN
-                </span>
-                <span className="text-[9px] font-mono-tech tracking-wider text-[#798ea8] mt-0.5">
-                  TAP GO ON GREEN
-                </span>
-              </div>
+              <span className="text-xs sm:text-sm font-mono-tech tracking-[0.25em] text-[#cbd9ea] font-semibold">
+                TAP GO ON GREEN
+              </span>
             )}
           </div>
         </div>
       )}
 
-      {/* LAUNCH REACTION NOTICE BANNER (Fades out after 1s, placed high so car & rings are visible) */}
+      {/* LAUNCH REACTION NOTICE BANNER: faint, wide-spaced, ~60% opacity */}
       {status.launchNotice && (
-        <div className="absolute top-[22%] left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none animate-fade-in z-20">
-          <span className="text-2xl sm:text-4xl font-orbitron font-black tracking-widest text-white/95 drop-shadow-[0_0_20px_rgba(255,255,255,0.7)]">
+        <div className="absolute top-[22%] left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none opacity-60 z-20">
+          <span className="text-lg sm:text-xl font-mono-tech font-bold tracking-[0.3em] text-white">
             LAUNCH
           </span>
-          <span className="text-[11px] sm:text-xs font-mono-tech tracking-wider text-[#cbd9ea] mt-0.5 bg-black/40 px-2 py-0.5 rounded backdrop-blur-sm">
+          <span className="text-[10px] sm:text-xs font-mono-tech tracking-[0.2em] text-[#cbd9ea] mt-0.5">
             Reaction {status.launchNotice.reactionSec.toFixed(3)} s
           </span>
         </div>
       )}
 
-      {/* FLIP STUNT POPUP BANNER ("FLIP +1,500 on landing") */}
+      {/* FLIP STUNT POPUP BANNER: smaller, faint white text (~60% opacity), never covering car or rings */}
       {status.flipNotice && (
-        <div className="absolute top-[26%] left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none animate-bounce z-20">
-          <span className="text-3xl sm:text-4xl font-orbitron font-extrabold tracking-wider text-white drop-shadow-[0_0_25px_rgba(255,42,42,0.8)]">
+        <div className="absolute top-[18%] left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none opacity-60 transition-opacity z-20">
+          <span className="text-sm sm:text-base font-mono-tech tracking-[0.3em] text-white font-bold">
             FLIP
           </span>
-          <span className="text-[11px] sm:text-xs font-mono-tech tracking-wider text-[#ff3880] mt-0.5 font-bold bg-black/40 px-2 py-0.5 rounded">
+          <span className="text-[10px] sm:text-xs font-mono-tech tracking-wider text-white/80 mt-0.5">
             +1,500 on landing
           </span>
         </div>
       )}
 
-      {/* TOO EARLY JUMP START TOAST (Never shows with GO!) */}
+      {/* TOO EARLY JUMP START TOAST */}
       {status.tooEarly && (
         <div className="absolute top-[24%] left-1/2 -translate-x-1/2 bg-[#3b1216] border border-[#ff2a2a] text-[#fca5a5] px-4 py-2 rounded text-xs sm:text-sm font-mono-tech tracking-wider shadow-[0_0_25px_rgba(255,42,42,0.5)] pointer-events-none animate-bounce z-30">
           TOO EARLY — WAIT FOR GREEN!
         </div>
       )}
 
-      {/* 3. BOTTOM CONTROLS & CIRCULAR GAUGES (Screenshots 2 & 3, fully responsive at 360px) */}
-      <div className="w-full flex items-end justify-between pointer-events-auto pb-1">
-        {/* Bottom Left: Circular G-Force Gauge & Flip Buttons */}
-        <div className="flex items-center gap-1.5 sm:gap-3">
-          {/* Current G-Force Gauge (red glow only when >= 3.5g) */}
-          <div className="relative w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center shrink-0">
+      {/* CRASH RED VIGNETTE FLASH */}
+      {status.state === 'crashed' && (
+        <div className="fixed inset-0 pointer-events-none z-30 bg-radial from-transparent via-[#ff2a2a]/15 to-[#ff2a2a]/35 animate-pulse" />
+      )}
+
+      {/* 3. BOTTOM CONTROLS & CIRCULAR GAUGES (Exact match to Reference Frames 2, 3, 7, 8) */}
+      <div className="w-full flex items-end justify-between pointer-events-auto pb-1 px-1">
+        {/* Bottom Left Column: Flip Buttons above G-Force Gauge */}
+        <div className="flex flex-col items-center gap-1.5 sm:gap-2">
+          {/* Flip Steer Controls */}
+          <div className="flex flex-col items-center">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  if (status.state === 'crashed' || status.state === 'landed') return;
+                  onSteer(-1);
+                }}
+                onPointerUp={() => onSteer(0)}
+                onPointerLeave={() => onSteer(0)}
+                aria-label="Rotate car left"
+                className="w-[72px] h-[72px] sm:w-[80px] sm:h-[80px] rounded-2xl bg-[#0c1422]/90 border border-[#253952] active:bg-[#1a2f4c] text-white flex items-center justify-center cursor-pointer shadow-lg transition-transform active:scale-95 shrink-0"
+              >
+                <ChevronLeft size={32} strokeWidth={2.5} />
+              </button>
+
+              <button
+                type="button"
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  if (status.state === 'crashed' || status.state === 'landed') return;
+                  onSteer(1);
+                }}
+                onPointerUp={() => onSteer(0)}
+                onPointerLeave={() => onSteer(0)}
+                aria-label="Rotate car right"
+                className="w-[72px] h-[72px] sm:w-[80px] sm:h-[80px] rounded-2xl bg-[#0c1422]/90 border border-[#253952] active:bg-[#1a2f4c] text-white flex items-center justify-center cursor-pointer shadow-lg transition-transform active:scale-95 shrink-0"
+              >
+                <ChevronRight size={32} strokeWidth={2.5} />
+              </button>
+            </div>
+            <span className="text-[10px] font-mono-tech tracking-[0.25em] text-[#798ea8] mt-1.5">
+              FLIP
+            </span>
+          </div>
+
+          {/* Current G-Force Gauge (~64 px round gauge at left edge) */}
+          <div className="relative w-16 h-16 flex items-center justify-center shrink-0">
             <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
               <circle
                 cx="50"
                 cy="50"
                 r="42"
                 fill="#080e18"
-                stroke="#172232"
-                strokeWidth="4"
+                stroke={status.gForce >= 3.5 ? '#ff2a2a' : '#172232'}
+                strokeWidth={status.gForce >= 3.5 ? '4' : '3'}
+                style={{
+                  filter: status.gForce >= 3.5 ? 'drop-shadow(0 0 10px #ff2a2a)' : undefined,
+                }}
               />
               <circle
                 cx="50"
@@ -384,13 +462,13 @@ export const GameHud: React.FC<GameHudProps> = ({
                 r="42"
                 fill="none"
                 stroke={status.gForce >= 3.5 ? '#ff2a2a' : '#cbd7e6'}
-                strokeWidth="4"
+                strokeWidth={status.gForce >= 3.5 ? '5' : '4'}
                 strokeDasharray={circumference}
-                strokeDashoffset={gStrokeOffset}
+                strokeDashoffset={status.gForce >= 3.5 ? 0 : gStrokeOffset}
                 strokeLinecap="round"
                 className="gauge-ring"
                 style={{
-                  filter: status.gForce >= 3.5 ? 'drop-shadow(0 0 8px #ff2a2a)' : undefined,
+                  filter: status.gForce >= 3.5 ? 'drop-shadow(0 0 10px #ff2a2a)' : undefined,
                 }}
               />
             </svg>
@@ -398,57 +476,26 @@ export const GameHud: React.FC<GameHudProps> = ({
               <span className="text-[7px] sm:text-[8px] font-mono-tech tracking-wider text-[#798ea8]">
                 G-FORCE
               </span>
-              <span className="text-xs sm:text-base font-condensed font-bold text-white leading-none my-0.5">
+              <span
+                className={`text-sm sm:text-base font-condensed font-bold leading-none my-0.5 ${
+                  status.gForce >= 3.5 ? 'text-[#ff2a2a]' : 'text-white'
+                }`}
+              >
                 {status.gForce.toFixed(1)}
               </span>
               <span className="text-[7px] sm:text-[8px] font-mono-tech text-[#798ea8]">g</span>
             </div>
           </div>
-
-          {/* Flip Steer Controls */}
-          <div className="flex flex-col items-center">
-            <div className="flex gap-1.5 sm:gap-2">
-              <button
-                type="button"
-                onPointerDown={(e) => {
-                  e.preventDefault();
-                  onSteer(-1);
-                }}
-                onPointerUp={() => onSteer(0)}
-                onPointerLeave={() => onSteer(0)}
-                aria-label="Rotate car left"
-                className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-[#0c1422]/90 border border-[#253952] active:bg-[#1a2f4c] text-white flex items-center justify-center cursor-pointer shadow-lg transition-transform active:scale-95"
-              >
-                <ArrowLeft size={16} />
-              </button>
-
-              <button
-                type="button"
-                onPointerDown={(e) => {
-                  e.preventDefault();
-                  onSteer(1);
-                }}
-                onPointerUp={() => onSteer(0)}
-                onPointerLeave={() => onSteer(0)}
-                aria-label="Rotate car right"
-                className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-[#0c1422]/90 border border-[#253952] active:bg-[#1a2f4c] text-white flex items-center justify-center cursor-pointer shadow-lg transition-transform active:scale-95"
-              >
-                <ArrowRight size={16} />
-              </button>
-            </div>
-            <span className="text-[8px] sm:text-[9px] font-mono-tech tracking-[0.2em] text-[#798ea8] mt-0.5">
-              FLIP
-            </span>
-          </div>
         </div>
 
-        {/* Bottom Right: Big Red Action Circle & Altitude Gauge with Dynamic Sink Speed */}
-        <div className="flex items-center gap-1.5 sm:gap-3">
-          {/* Action Circle (GO on ground, THRUST during flight) */}
+        {/* Bottom Right Column: Big Round Red Action Circle (~120 px) above Altitude Gauge (~64 px) */}
+        <div className="flex flex-col items-center gap-1.5 sm:gap-2">
+          {/* Action Circle: ~120px diameter, thin red ring, translucent red fill */}
           <button
             type="button"
             onPointerDown={(e) => {
               e.preventDefault();
+              if (status.state === 'crashed' || status.state === 'landed') return;
               if (isAir) {
                 onThrust(true);
               } else {
@@ -461,14 +508,14 @@ export const GameHud: React.FC<GameHudProps> = ({
             onPointerLeave={() => {
               if (isAir) onThrust(false);
             }}
-            className="w-18 h-18 sm:w-22 sm:h-22 rounded-full flex items-center justify-center font-orbitron font-bold text-xs sm:text-sm tracking-widest text-white transition-all cursor-pointer shadow-2xl bg-[#1e0e12]/95 border-2 border-[#ff2a2a] hover:bg-[#341117] active:scale-95 shadow-[0_0_28px_rgba(255,42,42,0.65)] shrink-0"
+            className="w-28 h-28 sm:w-[120px] sm:h-[120px] rounded-full flex items-center justify-center font-orbitron font-bold text-sm sm:text-base tracking-widest text-white transition-all cursor-pointer active:scale-95 shrink-0 bg-[#ff2a2a]/20 border-2 border-[#ff2a2a] shadow-[0_0_28px_rgba(255,42,42,0.65)] hover:shadow-[0_0_36px_rgba(255,42,42,0.85)]"
           >
             {status.actionButtonText}
           </button>
 
-          {/* Altitude Gauge with SINK xx FT/S indicator */}
+          {/* Altitude Gauge (~64 px) with SINK xx FT/S text underneath, fully visible */}
           <div className="flex flex-col items-center">
-            <div className="relative w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center shrink-0">
+            <div className="relative w-16 h-16 flex items-center justify-center shrink-0">
               <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
                 <circle
                   cx="50"
@@ -476,7 +523,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                   r="42"
                   fill="#080e18"
                   stroke="#172232"
-                  strokeWidth="4"
+                  strokeWidth="3"
                 />
                 <circle
                   cx="50"
@@ -495,19 +542,19 @@ export const GameHud: React.FC<GameHudProps> = ({
                 <span className="text-[7px] sm:text-[8px] font-mono-tech tracking-wider text-[#798ea8]">
                   ALTITUDE
                 </span>
-                <span className="text-xs sm:text-base font-condensed font-bold text-white leading-none my-0.5">
+                <span className="text-sm sm:text-base font-condensed font-bold text-white leading-none my-0.5">
                   {status.altitudeFt}
                 </span>
                 <span className="text-[7px] sm:text-[8px] font-mono-tech text-[#798ea8]">ft</span>
               </div>
             </div>
 
-            {/* SINK speed badge: green when safe (<= 39), red when over 39 ft/s */}
-            {isAir && status.sinkSpeedFtS > 0 && (
+            {/* SINK xx FT/S text under ALTITUDE gauge, fully visible */}
+            {status.sinkSpeedFtS > 0 && (
               <span
-                className={`text-[8px] sm:text-[9px] font-mono-tech font-bold mt-0.5 tracking-wider ${
+                className={`text-[9px] sm:text-[10px] font-mono-tech font-bold mt-1 tracking-wider ${
                   status.sinkSpeedFtS > 39
-                    ? 'text-[#ff2a2a] drop-shadow-[0_0_6px_rgba(255,42,42,0.8)]'
+                    ? 'text-[#ff2a2a] drop-shadow-[0_0_8px_rgba(255,42,42,0.9)]'
                     : 'text-[#34d399]'
                 }`}
               >
@@ -630,54 +677,54 @@ export const GameHud: React.FC<GameHudProps> = ({
             </p>
 
             {/* 8-Metric Grid matching Screenshot 4 */}
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2 py-2 border-t border-b border-[#1f2f42] text-xs font-mono-tech mb-3">
-              <div>
-                <span className="text-[9px] tracking-wider text-[#768da6] block">REACTION</span>
-                <span className="text-sm font-semibold text-white">
-                  {(status.metrics.reactionMs / 1000).toFixed(3)} s
+            <div className="grid grid-cols-2 border border-[#1f2f42] divide-x divide-y divide-[#1f2f42] text-xs font-mono-tech mb-3 bg-[#080d16]/60">
+              <div className="p-2.5 sm:p-3">
+                <span className="text-[9px] tracking-wider text-[#768da6] block uppercase">REACTION</span>
+                <span className="text-sm sm:text-base font-semibold text-white">
+                  {(status.metrics.reactionMs / 1000).toFixed(3)}<span className="text-xs text-[#8da3bd] ml-0.5">s</span>
                 </span>
               </div>
-              <div>
-                <span className="text-[9px] tracking-wider text-[#768da6] block">RAMP SPEED</span>
-                <span className="text-sm font-semibold text-white">
-                  {status.metrics.rampSpeedMph} mph
-                </span>
-              </div>
-
-              <div>
-                <span className="text-[9px] tracking-wider text-[#768da6] block">PEAK G</span>
-                <span className="text-sm font-semibold text-white">
-                  {status.metrics.peakG.toFixed(1)} g
-                </span>
-              </div>
-              <div>
-                <span className="text-[9px] tracking-wider text-[#768da6] block">MAX ALTITUDE</span>
-                <span className="text-sm font-semibold text-white">
-                  {status.metrics.maxAltitudeFt} ft
+              <div className="p-2.5 sm:p-3">
+                <span className="text-[9px] tracking-wider text-[#768da6] block uppercase">RAMP SPEED</span>
+                <span className="text-sm sm:text-base font-semibold text-white">
+                  {status.metrics.rampSpeedMph} <span className="text-xs text-[#8da3bd]">mph</span>
                 </span>
               </div>
 
-              <div>
-                <span className="text-[9px] tracking-wider text-[#768da6] block">AIRTIME</span>
-                <span className="text-sm font-semibold text-white">
-                  {status.metrics.airtimeSec.toFixed(1)} s
+              <div className="p-2.5 sm:p-3">
+                <span className="text-[9px] tracking-wider text-[#768da6] block uppercase">PEAK G</span>
+                <span className="text-sm sm:text-base font-semibold text-white">
+                  {status.metrics.peakG.toFixed(1)} <span className="text-xs text-[#8da3bd]">g</span>
                 </span>
               </div>
-              <div>
-                <span className="text-[9px] tracking-wider text-[#768da6] block">FLIPS</span>
-                <span className="text-sm font-semibold text-white">{status.metrics.flips}</span>
+              <div className="p-2.5 sm:p-3">
+                <span className="text-[9px] tracking-wider text-[#768da6] block uppercase">MAX ALTITUDE</span>
+                <span className="text-sm sm:text-base font-semibold text-white">
+                  {status.metrics.maxAltitudeFt} <span className="text-xs text-[#8da3bd]">ft</span>
+                </span>
               </div>
 
-              <div>
-                <span className="text-[9px] tracking-wider text-[#768da6] block">RINGS</span>
-                <span className="text-sm font-semibold text-white">
+              <div className="p-2.5 sm:p-3">
+                <span className="text-[9px] tracking-wider text-[#768da6] block uppercase">AIRTIME</span>
+                <span className="text-sm sm:text-base font-semibold text-white">
+                  {status.metrics.airtimeSec.toFixed(1)}<span className="text-xs text-[#8da3bd] ml-0.5">s</span>
+                </span>
+              </div>
+              <div className="p-2.5 sm:p-3">
+                <span className="text-[9px] tracking-wider text-[#768da6] block uppercase">FLIPS</span>
+                <span className="text-sm sm:text-base font-semibold text-white">{status.metrics.flips}</span>
+              </div>
+
+              <div className="p-2.5 sm:p-3">
+                <span className="text-[9px] tracking-wider text-[#768da6] block uppercase">RINGS</span>
+                <span className="text-sm sm:text-base font-semibold text-white">
                   {status.metrics.ringsCollected} / {status.metrics.totalRings}
                 </span>
               </div>
-              <div>
-                <span className="text-[9px] tracking-wider text-[#768da6] block">TOUCHDOWN</span>
-                <span className="text-sm font-semibold text-white">
-                  {status.metrics.touchdownSpeedFtS} ft/s
+              <div className="p-2.5 sm:p-3">
+                <span className="text-[9px] tracking-wider text-[#768da6] block uppercase">TOUCHDOWN</span>
+                <span className="text-sm sm:text-base font-semibold text-white">
+                  {status.metrics.touchdownSpeedFtS} <span className="text-xs text-[#8da3bd]">ft/s</span>
                 </span>
               </div>
             </div>
