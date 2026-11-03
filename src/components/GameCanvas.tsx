@@ -32,6 +32,9 @@ export interface GameCanvasHandle {
 export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
   ({ onStatusUpdate, statusRef, carColor, graphicsQuality, isPaused }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
+    const isPausedRef = useRef(isPaused);
+    isPausedRef.current = isPaused;
+    const previousQualityRef = useRef(graphicsQuality);
 
     // Engine references
     const engineRef = useRef<{
@@ -85,6 +88,8 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
       peakG: number;
       airStartTime: number;
       airEndTime: number;
+      airtimeElapsedSec: number;
+      crashFlashToken: number;
       launchTime: number;
       rampStartTime: number;
       reactionMs: number;
@@ -110,6 +115,7 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
       trajectoryPoints: TrajectoryPoint[];
       heroSnapshotCanvas: HTMLCanvasElement | null;
       trajectorySampleTimer: number;
+      trajectoryElapsedSec: number;
     }>({
       renderer: null,
       scene: null,
@@ -159,6 +165,8 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
       peakG: 1.0,
       airStartTime: 0,
       airEndTime: 0,
+      airtimeElapsedSec: 0,
+      crashFlashToken: 0,
       launchTime: 0,
       rampStartTime: 0,
       reactionMs: 0,
@@ -183,6 +191,7 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
       trajectoryPoints: [],
       heroSnapshotCanvas: null,
       trajectorySampleTimer: 0,
+      trajectoryElapsedSec: 0,
     });
 
     const safeBest = (): number => {
@@ -272,8 +281,8 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
             eng.countdownGreenTime = now + 3200;
             eng.countdownLastBeepStage = 1;
             updateStatus();
-            setTimeout(() => {
-              current.tooEarly = false;
+            window.setTimeout(() => {
+              statusRef.current.tooEarly = false;
               updateStatus();
             }, 800);
             return;
@@ -406,6 +415,9 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
       eng.touchdownSpeed = 0;
       eng.airStartTime = 0;
       eng.airEndTime = 0;
+      eng.airtimeElapsedSec = 0;
+      eng.crashFlashToken++;
+      statusRef.current.crashFlash = false;
       eng.frozenMetrics = null;
       eng.launchNotice = null;
       eng.launchNoticeTimer = 0;
@@ -418,6 +430,7 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
       eng.trajectoryPoints = [];
       eng.heroSnapshotCanvas = null;
       eng.trajectorySampleTimer = 0;
+      eng.trajectoryElapsedSec = 0;
 
       // Snap camera behind car lower-left (car fills ~35% width, Screenshot 2 / Frame 2)
       eng.cameraTargetPos.set(eng.x - 14, 4.2, 4.2);
@@ -518,9 +531,10 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
       // If we have frozen final metrics from touchdown, lock final score, while allowing speed/altitude/g-force to simulate until results
       if (eng.frozenMetrics) {
         const isNewBest = eng.frozenMetrics.score > best;
-        onStatusUpdate({
+        const nextStatus: GameStatus = {
           ...current,
           score: eng.frozenMetrics.score,
+          airtimeSec: eng.frozenMetrics.airtimeSec,
           bestScore: Math.max(best, eng.frozenMetrics.score),
           isNewBest,
           thrusterGas: eng.thrusterGas,
@@ -535,12 +549,15 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
           flipNotice: eng.flipNotice,
           actionButtonText: current.state === 'results' ? 'GO' : 'THRUST',
           metrics: eng.frozenMetrics,
-        });
+        };
+        statusRef.current = nextStatus;
+        onStatusUpdate(nextStatus);
         return;
       }
 
       const sinkSpeedFtS = current.state === 'air' && eng.vy < 0 ? Math.round(Math.abs(eng.vy)) : 0;
-      const airtimeSec = eng.airStartTime > 0 ? Number(((performance.now() - eng.airStartTime) / 1000).toFixed(1)) : 0;
+      // Measure airtime from fixed physics steps so pausing never adds wall-clock time.
+      const airtimeSec = Number(eng.airtimeElapsedSec.toFixed(1));
 
       // Live provisional score in air (includes rings + provisional stunt estimate)
       const liveScore =
@@ -572,11 +589,13 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
         score: breakdown.total,
         crashReason: getCrashExplanation(eng.touchdownSpeed, eng.angle, eng.ringsCollected),
         breakdown,
+        trajectory: eng.trajectoryPoints.length ? eng.trajectoryPoints.map((point) => ({ ...point })) : undefined,
       };
 
-      onStatusUpdate({
+      const nextStatus: GameStatus = {
         ...current,
         score: liveScore,
+        airtimeSec,
         bestScore: Math.max(best, breakdown.total),
         isNewBest: breakdown.total > best,
         thrusterGas: eng.thrusterGas,
@@ -591,7 +610,9 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
         flipNotice: eng.flipNotice,
         actionButtonText: current.state === 'count' || current.state === 'title' ? 'GO' : 'THRUST',
         metrics,
-      });
+      };
+      statusRef.current = nextStatus;
+      onStatusUpdate(nextStatus);
     };
 
     const getCrashExplanation = (sinkSpeed: number, angle: number, rings: number): string => {
@@ -834,8 +855,8 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
             eng.countdownGreenTime = now + 3200;
             eng.countdownLastBeepStage = 1;
             updateStatus();
-            setTimeout(() => {
-              current.tooEarly = false;
+            window.setTimeout(() => {
+              statusRef.current.tooEarly = false;
               updateStatus();
             }, 800);
             return;
@@ -871,7 +892,7 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
 
       const loop = (now: number) => {
         animId = requestAnimationFrame(loop);
-        if (isPaused) {
+        if (isPausedRef.current) {
           engineRef.current.lastTime = now;
           return;
         }
@@ -962,7 +983,38 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
     }, []);
 
     useEffect(() => {
-      engineRef.current.effectsSystem?.setQuality(graphicsQuality);
+      const previousQuality = previousQualityRef.current;
+      if (previousQuality === graphicsQuality) return;
+      previousQualityRef.current = graphicsQuality;
+
+      const eng = engineRef.current;
+      eng.effectsSystem?.setQuality(graphicsQuality);
+      if (!eng.scene) return;
+
+      // Rebuild quality-sensitive environment systems instead of leaving
+      // high-quality-only beams/shaders permanently stuck in their first mode.
+      if (eng.stageEnvironment) {
+        eng.stageEnvironment.dispose();
+        eng.stageEnvironment = null;
+      }
+      eng.stageEnvironment = buildUpgradedStage({
+        scene: eng.scene,
+        quality: graphicsQuality,
+        roadWidth: 20,
+      });
+
+      if (eng.backdrop) {
+        eng.backdrop.dispose();
+        eng.backdrop = null;
+      }
+      eng.backdrop = buildCinematicBackdrop({ scene: eng.scene, quality: graphicsQuality });
+
+      if (eng.lighting) {
+        eng.lighting.dispose();
+        eng.lighting = null;
+      }
+      eng.lighting = buildStadiumLighting({ scene: eng.scene, quality: graphicsQuality });
+      eng.searchlights = eng.lighting.searchlights;
     }, [graphicsQuality]);
 
     // Helper to get 4 wheel contact coordinates in world space
@@ -1251,6 +1303,7 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
           eng.angle = Math.atan2(88, 55);
           eng.omega = 0.6;
           eng.airStartTime = performance.now();
+          eng.airtimeElapsedSec = 0;
           eng.maxAlt = eng.y;
           eng.currentG = 0.0;
         }
@@ -1258,6 +1311,8 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
 
       // 4. AIRBORNE STUNT STATE (Gravity g = 32.2 ft/s², 2.0g thrusters, flips, rings)
       else if (current.state === 'air') {
+        // This is simulation time, not wall-clock time; pause freezes it.
+        eng.airtimeElapsedSec += dt;
         const GRAVITY = 32.2;
 
         // Left / Right angular acceleration with light damping
@@ -1297,6 +1352,22 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
 
         eng.maxAlt = Math.max(eng.maxAlt, eng.y);
 
+        // Record actual airborne position and pitch for the exported flight report.
+        eng.trajectoryElapsedSec += dt;
+        eng.trajectorySampleTimer += dt;
+        if (eng.trajectorySampleTimer >= 0.08) {
+          eng.trajectorySampleTimer %= 0.08;
+          if (eng.trajectoryPoints.length < 240) {
+            eng.trajectoryPoints.push({
+              x: Number(eng.x.toFixed(3)),
+              y: Number(eng.y.toFixed(3)),
+              z: Number(eng.z.toFixed(3)),
+              angle: Number(eng.angle.toFixed(4)),
+              t: Number(eng.trajectoryElapsedSec.toFixed(3)),
+            });
+          }
+        }
+
         // Horizontal speed only in mph (not total speed including falling!)
         current.speedMph = Math.round(Math.abs(eng.vx) / 1.46667);
 
@@ -1334,20 +1405,19 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
           }
         });
 
-        // AIR CAMERA: Side view following car closely with smooth panoramic 3/4 angle on descent
-        if (eng.vy < 0 && eng.y < 60) {
-          // Panoramic 3/4 descent camera showing car and landing road together
-          const descentT = Math.min(1.0, Math.max(0, (60 - eng.y) / 60));
-          const camZ = THREE.MathUtils.lerp(34, 40, descentT);
-          const camX = THREE.MathUtils.lerp(eng.x - 14, eng.x - 20, descentT);
-          const camY = Math.max(12, eng.y * 0.55 + 8);
-          const lookY = Math.max(3.2, eng.y * 0.45 + 1.8);
-          eng.cameraTargetPos.set(camX, camY, camZ);
-          eng.cameraTargetLook.set(eng.x + 10, lookY, 0);
-        } else {
-          eng.cameraTargetPos.set(eng.x - 14, Math.max(14, eng.y * 0.72 + 6), 34);
-          eng.cameraTargetLook.set(eng.x + 8, Math.max(8, eng.y * 0.68 + 2), 0);
-        }
+        // AIR CAMERA: Track the actual vehicle centre. Keep the camera offset
+        // relative to the car so altitude cannot carry the car above the frustum.
+        // The slightly wider airborne lens is blended by CameraDirector.
+        const altitudeLift = THREE.MathUtils.clamp(eng.y * 0.025, 0, 4.5);
+        const rearOffset = eng.vy < 0 ? 25 : 23;
+        const sideOffset = eng.vy < 0 ? 38 : 36;
+        const cameraHeight = 10.5 + altitudeLift;
+        eng.cameraTargetPos.set(
+          eng.x - rearOffset,
+          eng.y + cameraHeight,
+          eng.z + sideOffset
+        );
+        eng.cameraTargetLook.set(eng.x + 3.0, eng.y + 0.55, eng.z);
 
         // Real Lowest Geometry Ground Contact Check
         // Evaluates all extreme bounding vertices of the car 3D mesh rotated by car pitch
@@ -1379,7 +1449,7 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
           eng.runEnded = true;
           soundManager.stopThruster();
           eng.airEndTime = performance.now();
-          const finalAirtimeSec = Number(((eng.airEndTime - eng.airStartTime) / 1000).toFixed(1));
+          const finalAirtimeSec = Number(eng.airtimeElapsedSec.toFixed(1));
           eng.touchdownSpeed = Math.abs(eng.vy);
 
           // Wheels down within 25 degrees of upright
@@ -1428,6 +1498,7 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
               score: breakdown.total,
               crashReason: '',
               breakdown,
+              trajectory: eng.trajectoryPoints.map((point) => ({ ...point })),
             };
           } else {
             // HARD CRASH / WIPEOUT!
@@ -1437,18 +1508,20 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
             eng.crashTimer = 0;
 
             // G-FORCE gauge spikes to 50.7 g in red
+            // 50.7 g is an impact animation indicator, not measured flight peak G.
             eng.currentG = 50.7;
-            eng.peakG = Math.max(eng.peakG, 50.7);
 
             // Camera shake for 0.4 s
             eng.screenShake = 1.0;
 
-            // Red flash/vignette for 0.15 s
+            // Red impact flash is transient and must never carry into the next run.
             current.crashFlash = true;
-            setTimeout(() => {
-              current.crashFlash = false;
+            const flashToken = ++eng.crashFlashToken;
+            window.setTimeout(() => {
+              if (engineRef.current.crashFlashToken !== flashToken) return;
+              statusRef.current.crashFlash = false;
               updateStatus();
-            }, 150);
+            }, 180);
 
             // Loud thud + metal scrape sound, vibration [80, 40, 120]
             soundManager.playTouchdown(false);
@@ -1482,7 +1555,7 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
             eng.frozenMetrics = {
               reactionMs: eng.reactionMs,
               rampSpeedMph: eng.rampSpeed,
-              peakG: 50.7,
+              peakG: Number(eng.peakG.toFixed(1)),
               maxAltitudeFt: Math.round(eng.maxAlt),
               airtimeSec: finalAirtimeSec,
               flips: eng.flipsCount,
@@ -1494,6 +1567,7 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
               score: breakdown.total, // Rings only on crash!
               crashReason: getCrashExplanation(eng.touchdownSpeed, eng.angle, eng.ringsCollected),
               breakdown,
+              trajectory: eng.trajectoryPoints.map((point) => ({ ...point })),
             };
           }
         }
@@ -1754,6 +1828,25 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
         eng.cinematicPipeline.render(dt);
       } else if (eng.renderer && eng.scene && eng.camera) {
         eng.renderer.render(eng.scene, eng.camera);
+      }
+
+      // Capture the just-rendered WebGL frame once when the run ends. Drawing
+      // immediately after render avoids requiring preserveDrawingBuffer=true.
+      const finalState = statusRef.current.state;
+      if (!eng.heroSnapshotCanvas && (finalState === 'landed' || finalState === 'crashed' || finalState === 'results')) {
+        try {
+          const source = eng.renderer.domElement;
+          const snapshot = document.createElement('canvas');
+          snapshot.width = source.width;
+          snapshot.height = source.height;
+          const context = snapshot.getContext('2d');
+          if (context && snapshot.width > 0 && snapshot.height > 0) {
+            context.drawImage(source, 0, 0, snapshot.width, snapshot.height);
+            eng.heroSnapshotCanvas = snapshot;
+          }
+        } catch (error) {
+          console.warn('[Roadster] Gameplay snapshot capture unavailable:', error);
+        }
       }
     };
 

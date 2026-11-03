@@ -12,8 +12,10 @@ import {
   MoreHorizontal,
   Sparkles,
   Award,
+  Camera,
+  Download,
 } from 'lucide-react';
-import { CarColor, GameStatus, GraphicsQuality } from '../types';
+import { CameraMode, CarColor, GameStatus, GraphicsQuality } from '../types';
 import { soundManager } from '../audio/soundManager';
 
 interface GameHudProps {
@@ -29,6 +31,8 @@ interface GameHudProps {
   onTogglePause: () => void;
   onSelectCarColor: (color: CarColor) => void;
   onSelectGraphicsQuality: (quality: GraphicsQuality) => void;
+  onSetCameraMode: (mode: CameraMode) => void;
+  onExportFlightReport: () => Promise<void> | void;
   onOpenPrivacy: () => void;
 }
 
@@ -45,6 +49,8 @@ export const GameHud: React.FC<GameHudProps> = ({
   onTogglePause,
   onSelectCarColor,
   onSelectGraphicsQuality,
+  onSetCameraMode,
+  onExportFlightReport,
   onOpenPrivacy,
 }) => {
   const [soundOn, setSoundOn] = useState(soundManager.isEnabled());
@@ -70,6 +76,17 @@ export const GameHud: React.FC<GameHudProps> = ({
     try {
       localStorage.setItem('roadster_tutorial_seen', 'true');
     } catch {}
+  };
+
+  const handleExportFlightReport = async () => {
+    setIsSharing(true);
+    try {
+      await onExportFlightReport();
+    } catch (error) {
+      console.error('[Roadster] Flight report export failed:', error);
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   const isAir = status.state === 'air';
@@ -192,8 +209,8 @@ export const GameHud: React.FC<GameHudProps> = ({
   return (
     <div className="absolute inset-0 pointer-events-none select-none z-10 flex flex-col justify-between pt-[max(0.6rem,env(safe-area-inset-top))] pb-[max(0.6rem,env(safe-area-inset-bottom))] px-3 sm:px-5 md:px-6">
       {/* Red flash/vignette on crash impact (lasts 0.15s) */}
-      {status.crashFlash && (
-        <div className="fixed inset-0 pointer-events-none z-40 bg-[radial-gradient(circle_at_center,rgba(255,42,42,0.18)_0%,rgba(255,42,42,0.65)_100%)] transition-opacity duration-150" />
+      {status.state === 'crashed' && status.crashFlash && (
+        <div className="fixed inset-0 pointer-events-none z-40 bg-[radial-gradient(circle_at_center,rgba(255,42,42,0.10)_0%,rgba(255,42,42,0.32)_100%)] transition-opacity duration-150" />
       )}
 
       {/* 1. TOP HUD BAR (Matching Screenshot 2 & 3, fully responsive at 360px) */}
@@ -287,6 +304,33 @@ export const GameHud: React.FC<GameHudProps> = ({
                 {isPaused ? <Play size={14} className="text-[#34d399]" /> : <Pause size={14} className="text-[#cbd9ea]" />}
                 <span>{isPaused ? 'Resume Run' : 'Pause Game'}</span>
               </button>
+              <div className="border-y border-[#253952] py-2 my-1">
+                <div className="flex items-center gap-1.5 px-2 pb-1.5 text-[9px] font-mono-tech tracking-[0.18em] text-[#7890aa]">
+                  <Camera size={11} /> CAMERA VIEW
+                </div>
+                <div className="grid grid-cols-2 gap-1">
+                  {([
+                    ['chase', 'CHASE'],
+                    ['mounted', 'MOUNTED'],
+                    ['roof', 'ROOF'],
+                    ['drone', 'DRONE'],
+                  ] as [CameraMode, string][]).map(([mode, label]) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => {
+                        onSetCameraMode(mode);
+                        setShowMenu(false);
+                      }}
+                      aria-pressed={(status.cameraMode ?? 'chase') === mode}
+                      className={`px-2 py-2 rounded-lg text-[9px] font-mono-tech tracking-wider transition-colors ${(status.cameraMode ?? 'chase') === mode ? 'bg-[#eaf2fb] text-[#07101d] font-bold' : 'text-[#aabbd0] hover:bg-[#1a2536]'}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <button
                 type="button"
                 onClick={() => {
@@ -784,6 +828,16 @@ export const GameHud: React.FC<GameHudProps> = ({
                 className="w-full py-3 bg-[#ff2a2a] hover:bg-[#ff3b3b] active:scale-[0.98] text-white font-orbitron font-bold text-xs sm:text-sm tracking-widest uppercase rounded cursor-pointer transition-all shadow-[0_0_25px_rgba(255,42,42,0.5)]"
               >
                 RUN IT AGAIN
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportFlightReport}
+                disabled={isSharing}
+                className="w-full py-2 bg-[#132237] hover:bg-[#1a3048] border border-[#2b4965] hover:border-[#70c8ee] text-[#d8eafa] hover:text-white font-mono-tech text-xs tracking-wider uppercase rounded flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-60"
+              >
+                <Download size={13} className="text-cyan-300" />
+                {isSharing ? 'Generating...' : 'EXPORT FLIGHT REPORT'}
               </button>
 
               <button

@@ -121,18 +121,39 @@ export function createCameraDirector({
       carQuat.setFromAxisAngle(new THREE.Vector3(0, 0, 1), -carRotationZ);
     }
 
-    let modeTargetFov = 48.0;
+    // The airborne chase lens adapts to altitude and portrait aspect ratios.
+    // Vertical FOV matters most on tall/narrow viewports, where the car was
+    // previously leaving the top edge during the jump.
+    const portraitBoost = camera.aspect < 0.85 ? 8.0 : camera.aspect < 1.2 ? 4.0 : 0.0;
+    const airborneFov = THREE.MathUtils.clamp(
+      62.0 + Math.max(0, carPosition.y - 70.0) * 0.055 + portraitBoost,
+      62.0,
+      74.0,
+    );
+    let modeTargetFov = currentMode === 'chase' && state === 'air' ? airborneFov : 48.0;
 
     // =======================================================================
     // 1. CALCULATE POSE PER CAMERA MODE
     // =======================================================================
     switch (currentMode) {
       case 'chase': {
-        // Mode 1: Chase Camera — exactly the existing gameplay camera
-        targetPos.copy(chaseTargetPos);
-        targetLook.copy(chaseTargetLook);
+        // Ground and ramp framing stay driven by the existing composition.
+        // In flight, frame the actual car centre instead of looking ahead at
+        // a fixed world-space point. This keeps the complete GLB in view.
+        if (state === 'air') {
+          targetPos.set(
+            carPosition.x - 18.0,
+            carPosition.y + 8.5,
+            carPosition.z + 24.0,
+          );
+          targetLook.set(carPosition.x + 0.8, carPosition.y + 0.55, carPosition.z);
+          modeTargetFov = airborneFov;
+        } else {
+          targetPos.copy(chaseTargetPos);
+          targetLook.copy(chaseTargetLook);
+          modeTargetFov = 48.0;
+        }
         targetUp.set(0, 1, 0);
-        modeTargetFov = 48.0;
         break;
       }
 
@@ -196,7 +217,7 @@ export function createCameraDirector({
         }
 
         // Damped drone follow lag
-        const droneFollowRate = Math.min(1.0, dt * 2.8);
+        const droneFollowRate = 1.0 - Math.exp(-4.2 * Math.min(dt, 0.05));
         dronePos.x = THREE.MathUtils.lerp(dronePos.x, idealDroneX, droneFollowRate);
         dronePos.y = THREE.MathUtils.lerp(dronePos.y, idealDroneY, droneFollowRate);
         dronePos.z = THREE.MathUtils.lerp(dronePos.z, idealDroneZ, droneFollowRate);
@@ -216,8 +237,12 @@ export function createCameraDirector({
     // =======================================================================
     // 2. SMOOTH INTERPOLATION & MODE TRANSITIONS
     // =======================================================================
-    const baseSmoothRate = currentMode === 'chase' ? 4.6 : 8.5;
-    const smoothFactor = Math.min(1.0, dt * baseSmoothRate);
+    // Chase uses the original smoothing on the ground, but tracks more tightly
+    // in flight to avoid lagging behind the fast-moving vehicle.
+    const baseSmoothRate = currentMode === 'chase'
+      ? (state === 'air' ? 10.0 : 5.5)
+      : 8.5;
+    const smoothFactor = 1.0 - Math.exp(-baseSmoothRate * Math.min(dt, 0.05));
 
     // Apply smooth transition when switching modes
     if (transitionProgress < 1.0) {
@@ -258,7 +283,7 @@ export function createCameraDirector({
 
       // Maintain target FOV
       if (Math.abs(camera.fov - modeTargetFov) > 0.1) {
-        camera.fov = THREE.MathUtils.damp(camera.fov, modeTargetFov, 8.0, dt);
+        camera.fov = THREE.MathUtils.damp(camera.fov, modeTargetFov, 3.8, dt);
         camera.updateProjectionMatrix();
       }
     }

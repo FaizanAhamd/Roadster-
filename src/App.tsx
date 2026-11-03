@@ -1,7 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { GameCanvas, GameCanvasHandle } from './components/GameCanvas';
 import { GameHud } from './components/GameHud';
-import { CarColor, GameStatus, GraphicsQuality } from './types';
+import { CameraMode, CarColor, GameStatus, GraphicsQuality } from './types';
+import { exportFlightReport } from './utils/reportGenerator';
 import { soundManager } from './audio/soundManager';
 
 export default function App() {
@@ -24,6 +25,8 @@ export default function App() {
   });
 
   const [isPaused, setIsPaused] = useState(false);
+  const isPausedStateRef = useRef(isPaused);
+  isPausedStateRef.current = isPaused;
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
@@ -51,23 +54,27 @@ export default function App() {
     } catch {}
   };
 
-  const handleTogglePause = () => {
-    setIsPaused((prev) => !prev);
-  };
+  const handleTogglePause = useCallback(() => {
+    const next = !isPausedStateRef.current;
+    isPausedStateRef.current = next;
+    initialStatusRef.current = { ...initialStatusRef.current, isPaused: next };
+    setIsPaused(next);
+  }, []);
 
-  // Keyboard shortcut for Pause (Esc or P)
+  // Keyboard shortcut reads the latest game state through the mutable ref.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'KeyP' || e.code === 'Escape') {
-        if (status.state === 'drive' || status.state === 'ramp' || status.state === 'air') {
+      if ((e.code === 'KeyP' || e.code === 'Escape') && !e.repeat) {
+        const activeState = initialStatusRef.current.state;
+        if (activeState === 'drive' || activeState === 'ramp' || activeState === 'air') {
           e.preventDefault();
-          setIsPaused((prev) => !prev);
+          handleTogglePause();
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [handleTogglePause]);
 
   const initialStatusRef = useRef<GameStatus>({
     state: 'title',
@@ -84,6 +91,7 @@ export default function App() {
     thrusterGas: 1.0,
     gForce: 1.0,
     altitudeFt: 0,
+    airtimeSec: 0,
     flips: 0,
     ringsCount: 0,
     totalRings: 3,
@@ -128,6 +136,9 @@ export default function App() {
   const [status, setStatus] = useState<GameStatus>(initialStatusRef.current);
 
   const handleStatusUpdate = useCallback((newStatus: GameStatus) => {
+    // Keep the mutable engine/status ref synchronized with React state.
+    // Keyboard shortcuts and the fixed-step game loop read this ref.
+    initialStatusRef.current = newStatus;
     setStatus(newStatus);
   }, []);
 
@@ -148,8 +159,18 @@ export default function App() {
   };
 
   const handleRestart = () => {
+    isPausedStateRef.current = false;
     setIsPaused(false);
+    initialStatusRef.current = { ...initialStatusRef.current, isPaused: false };
     canvasRef.current?.restart();
+  };
+
+  const handleSetCameraMode = (mode: CameraMode) => {
+    canvasRef.current?.setCameraMode?.(mode);
+  };
+
+  const handleExportFlightReport = async () => {
+    await exportFlightReport(status, canvasRef.current?.getSnapshotCanvas?.() ?? null);
   };
 
   return (
@@ -178,6 +199,8 @@ export default function App() {
         onTogglePause={handleTogglePause}
         onSelectCarColor={handleSelectCarColor}
         onSelectGraphicsQuality={handleSelectGraphicsQuality}
+        onSetCameraMode={handleSetCameraMode}
+        onExportFlightReport={handleExportFlightReport}
         onOpenPrivacy={() => setShowPrivacy(true)}
       />
 
