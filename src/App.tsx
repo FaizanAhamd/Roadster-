@@ -18,9 +18,18 @@ export default function App() {
 
   const [graphicsQuality, setGraphicsQuality] = useState<GraphicsQuality>(() => {
     try {
-      return (localStorage.getItem('roadster_quality') as GraphicsQuality) || 'high';
+      // Migrate existing installs to the faster preset once. After this,
+      // the user's choice in Settings is remembered normally.
+      const performanceDefaultApplied = localStorage.getItem('roadster_performance_default_v1') === '1';
+      if (!performanceDefaultApplied) {
+        localStorage.setItem('roadster_performance_default_v1', '1');
+        localStorage.setItem('roadster_quality', 'low');
+        return 'low';
+      }
+      const savedQuality = localStorage.getItem('roadster_quality');
+      return savedQuality === 'high' || savedQuality === 'low' ? savedQuality : 'low';
     } catch {
-      return 'high';
+      return 'low';
     }
   });
 

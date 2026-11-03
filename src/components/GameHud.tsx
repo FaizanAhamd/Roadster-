@@ -946,7 +946,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                       : 'border-[#26374d] bg-[#0e1624] text-[#8a9bb5] hover:text-white'
                   }`}
                 >
-                  HIGH (60FPS + Shadows)
+                  HIGH (CINEMATIC MODE)
                 </button>
                 <button
                   type="button"
@@ -957,7 +957,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                       : 'border-[#26374d] bg-[#0e1624] text-[#8a9bb5] hover:text-white'
                   }`}
                 >
-                  LOW (Battery Saver)
+                  LOW (PERFORMANCE MODE)
                 </button>
               </div>
             </div>

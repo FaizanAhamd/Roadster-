@@ -12,7 +12,7 @@ import { GraphicsQuality } from '../types';
  * On high-DPI retina screens, capping at 1.5x cuts fill-rate and memory pressure roughly in half
  * while maintaining tack-sharp visuals in a dark midnight environment.
  */
-const postPixelRatio = (deviceRatio: number): number => Math.min(1.5, Math.max(1, deviceRatio));
+const postPixelRatio = (deviceRatio: number): number => Math.min(1.25, Math.max(1, deviceRatio));
 
 /**
  * GLSL Procedural 2D noise functions for wet road ripples and puddle masks.
@@ -187,7 +187,10 @@ export function createCinematicPipeline(options: CinematicPipelineOptions): Cine
   renderer.toneMappingExposure = 1.45;
 
   // 2. Create Half-float HDR Render Target with 4x MSAA where supported
-  const dpr = postPixelRatio(window.devicePixelRatio || 1);
+  let viewportWidth = width;
+  let viewportHeight = height;
+  const qualityPixelRatio = (q: GraphicsQuality) => q === 'high' ? postPixelRatio(window.devicePixelRatio || 1) : 1;
+  const dpr = qualityPixelRatio(quality);
   let renderTarget: THREE.WebGLRenderTarget;
   try {
     renderTarget = new THREE.WebGLRenderTarget(
@@ -195,7 +198,7 @@ export function createCinematicPipeline(options: CinematicPipelineOptions): Cine
       Math.round(height * dpr),
       {
         type: THREE.HalfFloatType,
-        samples: 4,
+        samples: quality === 'high' ? 2 : 0,
       }
     );
   } catch (err) {
@@ -205,7 +208,7 @@ export function createCinematicPipeline(options: CinematicPipelineOptions): Cine
       Math.round(height * dpr),
       {
         type: THREE.UnsignedByteType,
-        samples: 4,
+        samples: quality === 'high' ? 2 : 0,
       }
     );
   }
@@ -250,8 +253,8 @@ export function createCinematicPipeline(options: CinematicPipelineOptions): Cine
 
   const reflector = new Reflector(planeGeo, {
     clipBias: 0.002,
-    textureWidth: Math.max(256, Math.floor(width * 0.5)),
-    textureHeight: Math.max(256, Math.floor(height * 0.5)),
+    textureWidth: Math.min(768, Math.max(256, Math.floor(width * 0.35))),
+    textureHeight: Math.min(768, Math.max(256, Math.floor(height * 0.35))),
     shader: WetReflectionShader,
     multisample: 0,
   });
@@ -297,31 +300,33 @@ export function createCinematicPipeline(options: CinematicPipelineOptions): Cine
     },
 
     setSize: (newWidth: number, newHeight: number) => {
-      const currentDpr = postPixelRatio(window.devicePixelRatio || 1);
+      viewportWidth = newWidth;
+      viewportHeight = newHeight;
+      const currentDpr = qualityPixelRatio(currentQuality);
       composer.setPixelRatio(currentDpr);
       composer.setSize(newWidth, newHeight);
 
       bloomPass.resolution.set(newWidth, newHeight);
 
       reflector.getRenderTarget().setSize(
-        Math.max(256, Math.floor(newWidth * 0.5)),
-        Math.max(256, Math.floor(newHeight * 0.5))
+        Math.min(768, Math.max(256, Math.floor(newWidth * 0.35))),
+        Math.min(768, Math.max(256, Math.floor(newHeight * 0.35)))
       );
     },
 
     setQuality: (quality: GraphicsQuality) => {
       currentQuality = quality;
-      if (quality === 'high') {
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-        renderer.shadowMap.enabled = true;
-        bloomPass.strength = 0.42;
-        reflector.visible = true;
-      } else {
-        renderer.setPixelRatio(1);
-        renderer.shadowMap.enabled = false;
-        bloomPass.strength = 0;
-        reflector.visible = false;
-      }
+      const pixelRatio = qualityPixelRatio(quality);
+      renderer.setPixelRatio(pixelRatio);
+      composer.setPixelRatio(pixelRatio);
+      composer.setSize(viewportWidth, viewportHeight);
+      renderer.shadowMap.enabled = quality === 'high';
+      bloomPass.strength = quality === 'high' ? 0.42 : 0;
+      reflector.visible = quality === 'high';
+      reflector.getRenderTarget().setSize(
+        Math.min(768, Math.max(256, Math.floor(viewportWidth * 0.35))),
+        Math.min(768, Math.max(256, Math.floor(viewportHeight * 0.35)))
+      );
     },
 
     dispose: () => {

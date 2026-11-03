@@ -244,7 +244,7 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
         eng.cinematicPipeline.setQuality(graphicsQuality);
       } else if (eng.renderer) {
         if (graphicsQuality === 'high') {
-          eng.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+          eng.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
           eng.renderer.shadowMap.enabled = true;
         } else {
           eng.renderer.setPixelRatio(1);
@@ -648,11 +648,11 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
 
       // 3. WebGL Renderer
       const renderer = new THREE.WebGLRenderer({
-        antialias: true,
+        antialias: graphicsQuality === 'high',
         powerPreference: 'high-performance',
       });
       renderer.setSize(width, height);
-      renderer.setPixelRatio(graphicsQuality === 'high' ? Math.min(window.devicePixelRatio, 2) : 1);
+      renderer.setPixelRatio(graphicsQuality === 'high' ? Math.min(window.devicePixelRatio || 1, 1.25) : 1);
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.45;
       renderer.shadowMap.enabled = graphicsQuality === 'high';
@@ -888,6 +888,8 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
 
       // 9. Main Animation Loop
       const STEP = 1 / 120;
+      const TARGET_RENDER_INTERVAL_MS = 1000 / 60;
+      let lastRenderTime = 0;
       let animId = 0;
 
       const loop = (now: number) => {
@@ -906,7 +908,13 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
           engineRef.current.accumulator -= STEP;
         }
 
-        renderFrame(dt, now);
+        // Keep physics at 120 Hz, but do not render more than 60 frames/sec.
+        // This avoids wasting GPU time on 120/144/165 Hz displays.
+        const renderElapsedMs = now - lastRenderTime;
+        if (renderElapsedMs < TARGET_RENDER_INTERVAL_MS) return;
+        const renderDt = Math.min(renderElapsedMs / 1000, 0.05);
+        lastRenderTime = now;
+        renderFrame(renderDt, now);
       };
 
       engineRef.current.lastTime = performance.now();
