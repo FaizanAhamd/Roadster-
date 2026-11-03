@@ -290,11 +290,13 @@ export function createEffectsSystem({
   // =========================================================================
 
   const nozzleJets: THREE.Group[] = [];
+  // Keep the thruster exhaust clustered under the car body so the plume sits
+  // centered on the underside instead of spraying from the outer corners.
   const defaultNozzleOffsets = [
-    new THREE.Vector3(-1.4, 0.18, -0.65),
-    new THREE.Vector3(-1.4, 0.18, 0.65),
-    new THREE.Vector3(1.4, 0.18, -0.65),
-    new THREE.Vector3(1.4, 0.18, 0.65),
+    new THREE.Vector3(-0.5, 0.12, -0.32),
+    new THREE.Vector3(-0.5, 0.12, 0.32),
+    new THREE.Vector3(0.5, 0.12, -0.32),
+    new THREE.Vector3(0.5, 0.12, 0.32),
   ];
 
   for (let i = 0; i < 4; i++) {

@@ -95,6 +95,7 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
       reactionMs: number;
       rampSpeed: number;
       touchdownSpeed: number;
+      landingAssist: number;
       landingClean: boolean;
       runEnded: boolean;
       frozenMetrics: RunMetrics | null;
@@ -172,6 +173,7 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
       reactionMs: 0,
       rampSpeed: 80,
       touchdownSpeed: 0,
+      landingAssist: loadLandingAssist(),
       landingClean: false,
       runEnded: false,
       frozenMetrics: null,
@@ -207,6 +209,23 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
         localStorage.setItem('roadsterLoopBest', String(score));
       } catch {}
     };
+
+    function loadLandingAssist() {
+      try {
+        const saved = Number(localStorage.getItem('roadsterLoopLandingAssist') || '0');
+        return Number.isFinite(saved) ? Math.min(1.0, Math.max(0, saved)) : 0;
+      } catch {
+        return 0;
+      }
+    }
+
+    function saveLandingAssist(value: number) {
+      const capped = Math.min(1.0, Math.max(0, value));
+      try {
+        localStorage.setItem('roadsterLoopLandingAssist', String(capped));
+      } catch {}
+      return capped;
+    }
 
     // Update car body paint material when carColor changes
     const applyCarColor = (color: CarColor) => {
@@ -623,8 +642,8 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
       if (!isUpright) {
         return `Roof hit first. Keep rotating until the wheels point at the ground. Flips, altitude and airtime only score when you land it. Rings: ${ringsScoreText}.`;
       }
-      if (sinkSpeed > 39) {
-        return `Wheels down at ${Math.round(sinkSpeed)} ft/s, over the 39 ft/s limit. Burn the thrusters earlier to slow the drop. Flips, altitude and airtime only score when you land it. Rings: ${ringsScoreText}.`;
+      if (sinkSpeed > 72) {
+        return `Wheels hit at ${Math.round(sinkSpeed)} ft/s. Hold the thrusters longer and keep the car level as the wheels settle. Body or roof contact still ends the run. Rings: ${ringsScoreText}.`;
       }
       return `Roof hit first. Keep rotating until the wheels point at the ground. Flips, altitude and airtime only score when you land it. Rings: ${ringsScoreText}.`;
     };
@@ -1328,11 +1347,14 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
         eng.omega *= Math.pow(0.985, dt * 60);
         eng.angle += eng.omega * dt;
 
-        // Cold-gas thrusters: 2.0 g upward force along car's down-facing axis
+          // Cold-gas thrusters: mostly upward in world space, with a small forward
+        // assist to keep the car controllable during the hold. The adaptive landing
+        // assist stacks with failed attempts and decays only on a clean touchdown.
         if (eng.thrustInput && eng.thrusterGas > 0) {
-          const thrustAcc = 64.4; // 2.0 g in ft/s²
-          const thrustX = -Math.sin(eng.angle) * thrustAcc;
-          const thrustY = Math.cos(eng.angle) * thrustAcc;
+          const assistBoost = 32.2 + eng.landingAssist * 48.0;
+          const thrustAcc = 64.4 + eng.landingAssist * 44.0;
+          const thrustX = -Math.sin(eng.angle) * thrustAcc * 0.45;
+          const thrustY = (Math.cos(eng.angle) * thrustAcc * 0.9) + assistBoost;
 
           eng.vx += thrustX * dt;
           eng.vy += thrustY * dt;
@@ -1343,7 +1365,7 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
           // White-grey smoke puffs and sparks (no orange cones!)
           spawnThrusterPlumes();
 
-          eng.currentG = 2.0;
+          eng.currentG = 2.0 + eng.landingAssist * 0.8;
         } else {
           // Free fall ballistic trajectory is weightless (0.0 g)
           eng.currentG = 0.0;
@@ -1469,13 +1491,11 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
           lowestBodyY <= ROAD_SURFACE_Y &&
           lowestBodyY < lowestWheelY - 0.02;
 
-        const allFourWheelsDown =
-          wheelBottomYs.length === 4 &&
-          wheelBottomYs.every(
-            (y) =>
-              y >= ROAD_SURFACE_Y - WHEEL_CONTACT_TOLERANCE_FT &&
-              y <= ROAD_SURFACE_Y + WHEEL_CONTACT_TOLERANCE_FT
-          );
+        const wheelContactCount = wheelBottomYs.filter(
+          (y) => y >= ROAD_SURFACE_Y - WHEEL_CONTACT_TOLERANCE_FT && y <= ROAD_SURFACE_Y + WHEEL_CONTACT_TOLERANCE_FT
+        ).length;
+
+        const validWheelContact = wheelContactCount >= 2;
 
         // Physical touchdown on road tarmac surface (y <= 0.25 ft) while sinking downward (vy < 0)
         if (lowestPointY <= 0.25 && eng.vy < 0 && !eng.runEnded) {
@@ -1490,26 +1510,24 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
           const tiltRad = Math.min(normAngle, Math.PI * 2 - normAngle);
           const tiltDeg = Math.round((tiltRad * 180) / Math.PI);
 
-          // Landing requirements: all four wheels must contact the runway while
-          // roughly upright, with bounded rotation and landing speeds. The
-          // 8° tilt, 1.5 rad/s rotation and 80 mph horizontal caps are proposed
-          // gameplay thresholds — verify wheel geometry/runway level in next build.
-          const horizontalSpeedMph =
-            Math.abs(eng.vx) / 1.46667;
+          // The forgiving model accepts genuine wheel contact while still preventing
+          // body/roof impacts and excess rotation. This keeps the loop playable while
+          // rewarding stability, not a perfect 4-wheel lock.
+          const horizontalSpeedMph = Math.abs(eng.vx) / 1.46667;
 
           const landingFailureReason =
             bodyHitBeforeWheels
               ? 'BODY OR ROOF HIT BEFORE THE WHEELS'
-              : !allFourWheelsDown
-              ? 'ALL FOUR WHEELS DID NOT CONTACT THE RUNWAY'
-              : tiltDeg > 8
+              : !validWheelContact
+              ? 'TOUCHDOWN HAS TOO LITTLE WHEEL CONTACT'
+              : tiltDeg > 25
               ? 'CAR WAS NOT UPRIGHT ENOUGH'
-              : Math.abs(eng.omega) > 1.5
+              : Math.abs(eng.omega) > 2.5
               ? 'ROTATION TOO FAST AT TOUCHDOWN'
-              : eng.touchdownSpeed > 39
-              ? 'VERTICAL LANDING SPEED EXCEEDED 39 FT/S'
-              : horizontalSpeedMph > 80
-              ? 'HORIZONTAL LANDING SPEED EXCEEDED 80 MPH'
+              : eng.touchdownSpeed > 72
+              ? 'VERTICAL LANDING SPEED EXCEEDED 72 FT/S'
+              : horizontalSpeedMph > 95
+              ? 'HORIZONTAL LANDING SPEED EXCEEDED 95 MPH'
               : '';
 
           if (!landingFailureReason) {
@@ -1521,6 +1539,10 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
             eng.peakG = Math.max(eng.peakG, eng.currentG);
             current.state = 'landed';
             soundManager.playTouchdown(true);
+
+            // A successful landing is a reset condition for the adaptive assist, not a failure.
+            eng.landingAssist = 0;
+            saveLandingAssist(0);
 
             // Wheel contact smoke burst and dust
             spawnWheelSmokeBurst(1.4);
@@ -1593,6 +1615,11 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
             // Main bounce 1: 6–10 ft rise (restitution ~0.25). (19.5^2)/64.4 = 5.9 ft, (24.5^2)/64.4 = 9.3 ft
             eng.vy = Math.min(24.5, Math.max(19.5, eng.touchdownSpeed * 0.25));
             eng.omega = Math.random() > 0.5 ? 4.8 : -4.8;
+
+            const persistedAssist = Number(localStorage.getItem('roadsterLoopLandingAssist') || '0');
+            const nextAssist = Math.min(1, Math.max(0, Number.isFinite(persistedAssist) ? persistedAssist : 0) + 0.12);
+            eng.landingAssist = nextAssist;
+            saveLandingAssist(nextAssist);
 
             const breakdown = calculateBreakdown(
               false,

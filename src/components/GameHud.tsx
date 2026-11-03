@@ -649,8 +649,8 @@ export const GameHud: React.FC<GameHudProps> = ({
             <div className="red-neon-bar w-full mb-3.5" />
 
             <p className="text-xs sm:text-sm text-[#b2c4dc] leading-relaxed mb-4">
-              Hit the ramp flat out, flip off the curl at the top, then burn the thrusters to set it
-              down on all four wheels.
+              Hit the ramp flat out, flip off the curl at the top, then hold the thrusters as the car
+              settles onto the runway.
             </p>
 
             <div className="flex flex-col gap-3 mb-5 text-xs sm:text-sm text-[#cbd9ea]">
@@ -674,8 +674,8 @@ export const GameHud: React.FC<GameHudProps> = ({
                 <span className="w-14 sm:w-16 font-mono-tech text-[#7d92ad] text-xs pt-0.5">Land</span>
                 <p className="flex-1 text-[#b8c9df] leading-snug">
                   <span className="key-cap mr-1.5">Space</span>
-                  fires the thrusters out of the floor. Get upright and slow the drop below 39 ft/s
-                  before the wheels touch.
+                  fires the thrusters out of the floor. Hold thrust to keep the car stable and level as
+                  the wheels make contact.
                 </p>
               </div>
             </div>
@@ -755,16 +755,16 @@ export const GameHud: React.FC<GameHudProps> = ({
               </span>
               <p className="mt-1 text-xs leading-relaxed text-[#d5e0ed] break-words">
                 {status.metrics.landedClean
-                  ? `All four wheels touched down clean. Sink speed: ${status.metrics.touchdownSpeedFtS} ft/s.`
+                  ? `Wheel contact was solid. Keep the car upright and the thrusters burning as you settle in.`
                   : status.metrics.crashReason || 'Landing criteria were not met.'}
               </p>
               <div className="mt-2 flex items-center justify-between gap-2 border-t border-white/10 pt-2 text-[9px] font-mono-tech tracking-wider">
                 <span className="text-[#8297b2]">TOUCHDOWN SINK SPEED</span>
                 <span className={`font-bold ${
-                  status.metrics.touchdownSpeedFtS <= 39 ? 'text-emerald-300' : 'text-[#ff8a8a]'
+                  status.metrics.touchdownSpeedFtS <= 72 ? 'text-emerald-300' : 'text-[#ff8a8a]'
                 }`}>
                   {status.metrics.touchdownSpeedFtS} FT/S
-                  <span className="ml-1 font-normal text-[#8297b2]">/ TARGET ≤39</span>
+                  <span className="ml-1 font-normal text-[#8297b2]">/ TARGET ≤72</span>
                 </span>
               </div>
             </div>
@@ -1056,7 +1056,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                 <div>
                   <b className="text-white block font-mono-tech">LAND WHEELS DOWN</b>
                   <p className="text-[#9cb0c9] mt-0.5 leading-relaxed text-[11px]">
-                    Hold <b>THRUST</b> or <b>Space</b> to fire 2.0g cold-gas rockets. Level wheels within 25° and keep sink speed under 39 ft/s for a clean landing!
+                    Hold <b>THRUST</b> or <b>Space</b> to fire the floor jets. Aim for a stable, upright touchdown and keep the car from hitting the roof or body before the wheels settle.
                   </p>
                 </div>
               </div>
