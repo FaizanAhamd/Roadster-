@@ -81,9 +81,11 @@ body {
 }
 
 /* The App root is the single full-screen game viewport. */
-#root > main {
-  position: fixed;
-  inset: 0;
+
+/* Full-screen game viewport with footer below */
+#root > div > main {
+  position: relative;
+  inset: auto;
   width: 100vw;
   height: 100vh;
   height: 100dvh;
@@ -97,12 +99,13 @@ body {
   background: var(--roadster-bg);
 }
 
+
 /* Three.js mount point: one canvas fills the viewport behind the HUD. */
-#root > main > div[ class ] {
+#root > div > main > div[ class ] {
   min-width: 0;
 }
 
-#root > main > div.relative.cursor-crosshair {
+#root > div > main > div.relative.cursor-crosshair {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -124,7 +127,7 @@ body {
 }
 
 /* Renderer canvases are created dynamically by Three.js. */
-#root > main > div canvas {
+#root > div > main > div canvas {
   position: absolute;
   inset: 0;
   width: 100% !important;
@@ -212,7 +215,7 @@ button:focus-visible {
 }
 
 /* Do not let the HUD itself block the 3D view; interactive controls opt in. */
-#root > main > .absolute.inset-0 {
+#root > div > main > .absolute.inset-0 {
   min-width: 0;
   min-height: 0;
   padding-top: max(0.55rem, var(--safe-top));
@@ -222,13 +225,13 @@ button:focus-visible {
   overflow: hidden;
 }
 
-#root > main > .absolute.inset-0 button {
+#root > div > main > .absolute.inset-0 button {
   -webkit-user-select: none;
   user-select: none;
   touch-action: manipulation;
 }
 
-#root > main > .absolute.inset-0 button:active {
+#root > div > main > .absolute.inset-0 button:active {
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -247,7 +250,7 @@ button:focus-visible {
 /* Modal scrolling and safe-area support                                      */
 /* -------------------------------------------------------------------------- */
 
-#root > main > .fixed.inset-0.z-50 {
+#root > div > main > .fixed.inset-0.z-50 {
   max-width: 100vw;
   max-height: 100vh;
   max-height: 100dvh;
@@ -261,7 +264,7 @@ button:focus-visible {
   -webkit-overflow-scrolling: touch;
 }
 
-#root > main > .fixed.inset-0.z-50 > div {
+#root > div > main > .fixed.inset-0.z-50 > div {
   flex: 0 0 auto;
   max-height: calc(100vh - var(--safe-top) - var(--safe-bottom) - 1.5rem);
   max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 1.5rem);
@@ -273,19 +276,19 @@ button:focus-visible {
   -webkit-overflow-scrolling: touch;
 }
 
-#root > main > .fixed.inset-0.z-50 > div::-webkit-scrollbar {
+#root > div > main > .fixed.inset-0.z-50 > div::-webkit-scrollbar {
   width: 5px;
 }
 
-#root > main > .fixed.inset-0.z-50 > div::-webkit-scrollbar-thumb {
+#root > div > main > .fixed.inset-0.z-50 > div::-webkit-scrollbar-thumb {
   border-radius: 999px;
   background: #3b4b63;
 }
 
 /* Privacy/settings/tutorial/result overlays remain above the canvas and HUD. */
-#root > main > .fixed.inset-0.z-50,
-#root > main > .fixed.inset-0.z-40,
-#root > main > .fixed.inset-0.z-30 {
+#root > div > main > .fixed.inset-0.z-50,
+#root > div > main > .fixed.inset-0.z-40,
+#root > div > main > .fixed.inset-0.z-30 {
   isolation: isolate;
 }
 
@@ -319,30 +322,30 @@ button:focus-visible {
 /* -------------------------------------------------------------------------- */
 
 @media (max-width: 480px) {
-  #root > main > .absolute.inset-0 {
+  #root > div > main > .absolute.inset-0 {
     padding-right: max(6px, var(--safe-right));
     padding-left: max(6px, var(--safe-left));
   }
 
-  #root > main > .absolute.inset-0 > .flex.justify-between.items-start {
+  #root > div > main > .absolute.inset-0 > .flex.justify-between.items-start {
     gap: 0.25rem;
   }
 
-  #root > main > .absolute.inset-0 .font-condensed {
+  #root > div > main > .absolute.inset-0 .font-condensed {
     letter-spacing: -0.025em;
   }
 
-  #root > main > .absolute.inset-0 button {
+  #root > div > main > .absolute.inset-0 button {
     -webkit-tap-highlight-color: transparent;
   }
 
-  #root > main > .fixed.inset-0.z-50 {
+  #root > div > main > .fixed.inset-0.z-50 {
     align-items: flex-start;
     padding-top: max(0.5rem, var(--safe-top));
     padding-bottom: max(0.5rem, var(--safe-bottom));
   }
 
-  #root > main > .fixed.inset-0.z-50 > div {
+  #root > div > main > .fixed.inset-0.z-50 > div {
     width: min(100%, 420px);
     max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 1rem);
   }
@@ -350,18 +353,18 @@ button:focus-visible {
 
 /* Short landscape phones: keep the bottom controls and modal actions in view. */
 @media (orientation: landscape) and (max-height: 520px) {
-  #root > main > .absolute.inset-0 {
+  #root > div > main > .absolute.inset-0 {
     padding-top: max(4px, var(--safe-top));
     padding-bottom: max(4px, var(--safe-bottom));
   }
 
-  #root > main > .fixed.inset-0.z-50 {
+  #root > div > main > .fixed.inset-0.z-50 {
     align-items: flex-start;
     padding-top: max(6px, var(--safe-top));
     padding-bottom: max(6px, var(--safe-bottom));
   }
 
-  #root > main > .fixed.inset-0.z-50 > div {
+  #root > div > main > .fixed.inset-0.z-50 > div {
     max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 12px);
   }
 }
@@ -376,4 +379,46 @@ button:focus-visible {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+/* Allow page scrolling so website footer is accessible */
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 320px;
+  min-height: 100%;
+  height: auto;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: auto;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scrollbar-gutter: stable;
+}
+
+body {
+  position: relative;
+  inset: auto;
+  min-height: 100vh;
+  height: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: auto;
+  background: var(--roadster-bg);
+  color: var(--roadster-text);
+  touch-action: pan-x pan-y;
+}
+
+#root {
+  position: relative;
+  min-height: 100vh;
+  height: auto;
+  overflow: visible;
+  isolation: isolate;
+  background: var(--roadster-bg);
 }

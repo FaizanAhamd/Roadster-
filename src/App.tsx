@@ -182,63 +182,167 @@ export default function App() {
     await exportFlightReport(status, canvasRef.current?.getSnapshotCanvas?.() ?? null);
   };
 
+  
   return (
-    <main className="w-full h-full h-[100dvh] w-[100vw] overflow-hidden bg-[#050811] text-[#f1f6ff] relative select-none touch-manipulation">
-      {/* 3D WebGL Canvas Layer (Full Screen 100dvh x 100vw) */}
-      <GameCanvas
-        ref={canvasRef}
-        onStatusUpdate={handleStatusUpdate}
-        statusRef={initialStatusRef}
-        carColor={carColor}
-        graphicsQuality={graphicsQuality}
-        isPaused={isPaused}
-      />
+    <div className="min-h-screen w-full bg-[#050811] text-[#f1f6ff]">
 
-      {/* Primary In-Game HUD & Modals */}
-      <GameHud
-        status={status}
-        carColor={carColor}
-        graphicsQuality={graphicsQuality}
-        isPaused={isPaused}
-        onStartRun={handleStartRun}
-        onLaunch={handleLaunch}
-        onSteer={handleSteer}
-        onThrust={handleThrust}
-        onRestart={handleRestart}
-        onTogglePause={handleTogglePause}
-        onSelectCarColor={handleSelectCarColor}
-        onSelectGraphicsQuality={handleSelectGraphicsQuality}
-        onSetCameraMode={handleSetCameraMode}
-        onExportFlightReport={handleExportFlightReport}
-        onOpenPrivacy={() => setShowPrivacy(true)}
-      />
+      <main className="relative w-full h-[100dvh] overflow-hidden select-none touch-manipulation">
 
-      {/* PRIVACY POLICY MODAL */}
-      {showPrivacy && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 pointer-events-auto backdrop-blur-md">
-          <div className="w-full max-w-[480px] bg-[#0c121d] border border-[#253952] rounded-lg p-6 shadow-2xl text-xs sm:text-sm text-[#b8cae0] flex flex-col max-h-[85vh] overflow-y-auto">
-            <h2 className="text-xl font-orbitron font-bold text-white mb-2">Privacy Policy</h2>
-            <div className="red-neon-bar w-full mb-4" />
-            <p className="mb-3 leading-relaxed">
-              Roadster Loop is a client-side 3D fan game. It operates completely in your browser and does not collect, track, or share any personal data with external servers.
-            </p>
-            <h3 className="font-bold text-white mb-1">Local Storage</h3>
-            <p className="mb-3 leading-relaxed">
-              Your highest score, sound toggles, chosen car paint color, and graphics quality settings are stored locally in your browser using <code className="text-[#ff3880]">localStorage</code>. You can reset these at any time by clearing your browser data.
-            </p>
-            <p className="text-[11px] text-[#71869e] mb-4">
-              Unofficial fan game, not affiliated with any car brand.
-            </p>
-            <button
-              type="button"
-              onClick={() => setShowPrivacy(false)}
-              className="self-end px-5 py-2 bg-[#ff2a2a] text-white font-orbitron text-xs font-bold rounded cursor-pointer hover:bg-[#ff3b3b]"
-            >
-              CLOSE
-            </button>
+        <GameCanvas
+          ref={canvasRef}
+          onStatusUpdate={handleStatusUpdate}
+          statusRef={initialStatusRef}
+          carColor={carColor}
+          graphicsQuality={graphicsQuality}
+          isPaused={isPaused}
+        />
+
+        <GameHud
+          status={status}
+          carColor={carColor}
+          graphicsQuality={graphicsQuality}
+          isPaused={isPaused}
+          onStartRun={handleStartRun}
+          onLaunch={handleLaunch}
+          onSteer={handleSteer}
+          onThrust={handleThrust}
+          onRestart={handleRestart}
+          onTogglePause={handleTogglePause}
+          onSelectCarColor={handleSelectCarColor}
+          onSelectGraphicsQuality={handleSelectGraphicsQuality}
+          onSetCameraMode={handleSetCameraMode}
+          onExportFlightReport={handleExportFlightReport}
+          onOpenPrivacy={() => setShowPrivacy(true)}
+        />
+
+        {showPrivacy && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 pointer-events-auto backdrop-blur-md">
+            <div className="w-full max-w-[480px] max-h-[85vh] overflow-y-auto bg-[#0c121d] border border-[#253952] rounded-lg p-6 pb-8 shadow-2xl text-xs sm:text-sm text-[#b8cae0] flex flex-col">
+
+              <h2 className="text-xl font-orbitron font-bold text-white mb-2">
+                Privacy Policy
+              </h2>
+
+              <div className="red-neon-bar w-full mb-4" />
+
+              <p className="mb-3 leading-relaxed">
+                Roadster Loop is a browser-based 3D game. Game preferences and
+                progress are stored locally in your browser. The website also
+                uses Google AdSense to display advertisements.
+              </p>
+
+              <h3 className="font-bold text-white mb-1">Local Storage</h3>
+              <p className="mb-3 leading-relaxed">
+                Your best score, selected car color, sound preferences and
+                graphics settings may be stored in your browser's localStorage.
+                You can clear this information through your browser settings.
+              </p>
+
+              <h3 className="font-bold text-white mb-1">Advertising and Cookies</h3>
+              <p className="mb-3 leading-relaxed">
+                Google and its partners may use cookies, device identifiers
+                or similar technologies to serve, measure and personalize ads,
+                subject to your location, consent choices and applicable settings.
+              </p>
+
+              <p className="mb-3 leading-relaxed">
+                Learn how Google uses information from sites that use its
+                services in the{" "}
+                <a
+                  href="https://policies.google.com/technologies/partner-sites"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#ff3880] underline"
+                >
+                  Google Partner Sites Policy
+                </a>.
+              </p>
+
+              <h3 className="font-bold text-white mb-1">Your Choices</h3>
+              <p className="mb-3 leading-relaxed">
+                You can manage available advertising and privacy choices through
+                Google's{" "}
+                <a
+                  href="https://myadcenter.google.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#ff3880] underline"
+                >
+                  My Ad Center
+                </a>
+                {" "}and your browser settings.
+              </p>
+
+              <p className="mb-4 leading-relaxed">
+                For more information, read our full{" "}
+                <a
+                  href="/roadster-loop/privacy.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#ff3880] underline"
+                >
+                  Privacy Policy
+                </a>.
+              </p>
+
+              <p className="text-[11px] text-[#71869e] mb-4">
+                Roadster Loop is an unofficial fan game and is not affiliated
+                with any car brand.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setShowPrivacy(false)}
+                className="self-end px-5 py-2 bg-[#ff2a2a] text-white font-orbitron text-xs font-bold rounded cursor-pointer hover:bg-[#ff3b3b]"
+              >
+                CLOSE
+              </button>
+
+            </div>
           </div>
-        </div>
-      )}
-    </main>
+        )}
+
+      </main>
+
+      {/* Website Footer */}
+      <footer className="w-full bg-[#080e19] border-t border-[#253952] px-4 py-6 relative z-10">
+
+        <nav
+          aria-label="Website information"
+          className="max-w-5xl mx-auto flex flex-wrap justify-center items-center gap-x-5 gap-y-3"
+        >
+          <a href="/about/" className="text-xs text-[#a9b8cc] hover:text-[#ff3880] transition-colors">
+            About
+          </a>
+
+          <a href="/how-to-play/" className="text-xs text-[#a9b8cc] hover:text-[#ff3880] transition-colors">
+            How to Play
+          </a>
+
+          <a href="/features/" className="text-xs text-[#a9b8cc] hover:text-[#ff3880] transition-colors">
+            Features
+          </a>
+
+          <a href="/faq/" className="text-xs text-[#a9b8cc] hover:text-[#ff3880] transition-colors">
+            FAQ
+          </a>
+
+          <a href="/privacy/" className="text-xs text-[#a9b8cc] hover:text-[#ff3880] transition-colors">
+            Privacy
+          </a>
+
+          <a href="/contact/" className="text-xs text-[#a9b8cc] hover:text-[#ff3880] transition-colors">
+            Contact
+          </a>
+        </nav>
+
+        <p className="text-center text-[10px] text-[#71839b] mt-4">
+          © {new Date().getFullYear()} Roadster Loop — Night Run
+        </p>
+
+      </footer>
+
+    </div>
   );
 }
+
