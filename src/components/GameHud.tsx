@@ -207,20 +207,20 @@ export const GameHud: React.FC<GameHudProps> = ({
   };
 
   return (
-    <div className="absolute inset-0 pointer-events-none select-none z-10 flex flex-col justify-between pt-[max(0.6rem,env(safe-area-inset-top))] pb-[max(0.6rem,env(safe-area-inset-bottom))] px-3 sm:px-5 md:px-6">
+    <div className="absolute inset-0 pointer-events-none select-none z-10 flex min-h-0 flex-col justify-between pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] px-2 sm:px-5 md:px-6">
       {/* Red flash/vignette on crash impact (lasts 0.15s) */}
       {status.state === 'crashed' && status.crashFlash && (
         <div className="fixed inset-0 pointer-events-none z-40 bg-[radial-gradient(circle_at_center,rgba(255,42,42,0.10)_0%,rgba(255,42,42,0.32)_100%)] transition-opacity duration-150" />
       )}
 
       {/* 1. TOP HUD BAR (Matching Screenshot 2 & 3, fully responsive at 360px) */}
-      <div className="flex justify-between items-start w-full pointer-events-auto">
+      <div className="flex justify-between items-start gap-1.5 sm:gap-3 w-full pointer-events-auto">
         {/* Top Left: Large SCORE number (~28px) & BEST small under it */}
         <div className="flex flex-col shrink-0 min-w-[70px]">
           <span className="text-[10px] font-mono-tech tracking-[0.2em] text-[#8a9bb5]">
             SCORE
           </span>
-          <div className="text-[28px] sm:text-3xl font-condensed font-bold tracking-tight text-white leading-none mt-0.5 drop-shadow">
+          <div className="text-[24px] sm:text-3xl font-condensed font-bold tracking-tight text-white leading-none mt-0.5 drop-shadow">
             {status.score.toLocaleString('en-US')}
           </div>
           <span className="text-[10px] sm:text-[11px] font-mono-tech tracking-wider text-[#687b94] mt-1">
@@ -229,7 +229,7 @@ export const GameHud: React.FC<GameHudProps> = ({
         </div>
 
         {/* Top Center: Speed MPH, Thin Pale White-Blue Thruster Gas Bar, Flips & Rings */}
-        <div className="flex flex-col items-center max-w-[160px] sm:max-w-[240px] md:max-w-[300px] w-full px-1">
+        <div className="flex flex-col items-center max-w-[144px] sm:max-w-[240px] md:max-w-[300px] w-full min-w-0 px-1">
           {/* Speed in MPH (horizontal speed only!) */}
           <div className="flex items-baseline gap-1">
             <span className="text-3xl sm:text-5xl font-condensed font-extrabold tracking-tight text-white leading-none">
@@ -455,9 +455,9 @@ export const GameHud: React.FC<GameHudProps> = ({
       )}
 
       {/* 3. BOTTOM CONTROLS & CIRCULAR GAUGES (Exact match to Reference Frames 2, 3, 7, 8) */}
-      <div className="w-full flex items-end justify-between pointer-events-auto pb-1 px-1">
+      <div className="w-full flex items-end justify-between gap-2 pointer-events-auto pb-1 px-0.5 sm:px-1">
         {/* Bottom Left Column: Flip Buttons above G-Force Gauge */}
-        <div className="flex flex-col items-center gap-1.5 sm:gap-2">
+        <div className="flex flex-col items-center gap-1 sm:gap-2 shrink-0">
           {/* Flip Steer Controls */}
           <div className="flex flex-col items-center">
             <div className="flex gap-2">
@@ -466,12 +466,15 @@ export const GameHud: React.FC<GameHudProps> = ({
                 onPointerDown={(e) => {
                   e.preventDefault();
                   if (status.state === 'crashed' || status.state === 'landed') return;
+                  e.currentTarget.setPointerCapture(e.pointerId);
                   onSteer(-1);
                 }}
                 onPointerUp={() => onSteer(0)}
+                onPointerCancel={() => onSteer(0)}
+                onLostPointerCapture={() => onSteer(0)}
                 onPointerLeave={() => onSteer(0)}
                 aria-label="Rotate car left"
-                className="w-[72px] h-[72px] sm:w-[80px] sm:h-[80px] rounded-2xl bg-[#0c1422]/90 border border-[#253952] active:bg-[#1a2f4c] text-white flex items-center justify-center cursor-pointer shadow-lg transition-transform active:scale-95 shrink-0"
+                className="w-[clamp(3.25rem,16vw,5rem)] h-[clamp(3.25rem,16vw,5rem)] rounded-xl sm:rounded-2xl bg-[#0c1422]/90 border border-[#253952] active:bg-[#1a2f4c] text-white flex items-center justify-center cursor-pointer shadow-lg transition-transform active:scale-95 shrink-0 touch-none"
               >
                 <ChevronLeft size={32} strokeWidth={2.5} />
               </button>
@@ -481,12 +484,15 @@ export const GameHud: React.FC<GameHudProps> = ({
                 onPointerDown={(e) => {
                   e.preventDefault();
                   if (status.state === 'crashed' || status.state === 'landed') return;
+                  e.currentTarget.setPointerCapture(e.pointerId);
                   onSteer(1);
                 }}
                 onPointerUp={() => onSteer(0)}
+                onPointerCancel={() => onSteer(0)}
+                onLostPointerCapture={() => onSteer(0)}
                 onPointerLeave={() => onSteer(0)}
                 aria-label="Rotate car right"
-                className="w-[72px] h-[72px] sm:w-[80px] sm:h-[80px] rounded-2xl bg-[#0c1422]/90 border border-[#253952] active:bg-[#1a2f4c] text-white flex items-center justify-center cursor-pointer shadow-lg transition-transform active:scale-95 shrink-0"
+                className="w-[clamp(3.25rem,16vw,5rem)] h-[clamp(3.25rem,16vw,5rem)] rounded-xl sm:rounded-2xl bg-[#0c1422]/90 border border-[#253952] active:bg-[#1a2f4c] text-white flex items-center justify-center cursor-pointer shadow-lg transition-transform active:scale-95 shrink-0 touch-none"
               >
                 <ChevronRight size={32} strokeWidth={2.5} />
               </button>
@@ -497,7 +503,7 @@ export const GameHud: React.FC<GameHudProps> = ({
           </div>
 
           {/* Current G-Force Gauge (~64 px round gauge at left edge) */}
-          <div className="relative w-16 h-16 flex items-center justify-center shrink-0">
+          <div className="relative w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center shrink-0">
             <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
               <circle
                 cx="50"
@@ -543,13 +549,14 @@ export const GameHud: React.FC<GameHudProps> = ({
         </div>
 
         {/* Bottom Right Column: Big Round Red Action Circle (~120 px) above Altitude Gauge (~64 px) */}
-        <div className="flex flex-col items-center gap-1.5 sm:gap-2">
+        <div className="flex flex-col items-center gap-1 sm:gap-2 shrink-0">
           {/* Action Circle: ~120px diameter, thin red ring, translucent red fill */}
           <button
             type="button"
             onPointerDown={(e) => {
               e.preventDefault();
               if (status.state === 'crashed' || status.state === 'landed') return;
+              e.currentTarget.setPointerCapture(e.pointerId);
               if (isAir) {
                 onThrust(true);
               } else {
@@ -559,17 +566,23 @@ export const GameHud: React.FC<GameHudProps> = ({
             onPointerUp={() => {
               if (isAir) onThrust(false);
             }}
+            onPointerCancel={() => {
+              if (isAir) onThrust(false);
+            }}
+            onLostPointerCapture={() => {
+              if (isAir) onThrust(false);
+            }}
             onPointerLeave={() => {
               if (isAir) onThrust(false);
             }}
-            className="w-28 h-28 sm:w-[120px] sm:h-[120px] rounded-full flex items-center justify-center font-orbitron font-bold text-sm sm:text-base tracking-widest text-white transition-all cursor-pointer active:scale-95 shrink-0 bg-[#ff2a2a]/20 border-2 border-[#ff2a2a] shadow-[0_0_28px_rgba(255,42,42,0.65)] hover:shadow-[0_0_36px_rgba(255,42,42,0.85)]"
+            className="w-[clamp(5rem,23vw,7.5rem)] h-[clamp(5rem,23vw,7.5rem)] sm:w-[120px] sm:h-[120px] rounded-full flex items-center justify-center font-orbitron font-bold text-xs sm:text-base tracking-widest text-white transition-all cursor-pointer active:scale-95 shrink-0 touch-none bg-[#ff2a2a]/20 border-2 border-[#ff2a2a] shadow-[0_0_28px_rgba(255,42,42,0.65)] hover:shadow-[0_0_36px_rgba(255,42,42,0.85)]"
           >
             {status.actionButtonText}
           </button>
 
           {/* Altitude Gauge (~64 px) with SINK xx FT/S text underneath, fully visible */}
           <div className="flex flex-col items-center">
-            <div className="relative w-16 h-16 flex items-center justify-center shrink-0">
+            <div className="relative w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center shrink-0">
               <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
                 <circle
                   cx="50"
@@ -695,8 +708,8 @@ export const GameHud: React.FC<GameHudProps> = ({
 
       {/* 5. RESULTS / WIPEOUT / VICTORY MODAL (Exact match to Reference Screenshot 4 & rule 2/9) */}
       {isResults && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4 pointer-events-auto">
-          <div className="w-full max-w-[380px] sm:max-w-[410px] bg-[#0b1018]/95 border border-[#24354a] rounded-lg p-4 sm:p-5 shadow-[0_20px_80px_rgba(0,0,0,0.95)] flex flex-col backdrop-blur-md">
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center overflow-y-auto overscroll-contain bg-black/75 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pointer-events-auto">
+          <div className="my-auto w-full max-w-[380px] sm:max-w-[410px] max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem)] overflow-y-auto overscroll-contain bg-[#0b1018]/95 border border-[#24354a] rounded-lg p-3 sm:p-5 shadow-[0_20px_80px_rgba(0,0,0,0.95)] flex flex-col backdrop-blur-md">
             <span className="text-[9px] sm:text-[10px] font-mono-tech tracking-[0.2em] text-[#8da3bd] uppercase">
               {status.metrics.landedClean ? 'TOUCHDOWN' : 'CRASHED'}
             </span>
@@ -724,11 +737,37 @@ export const GameHud: React.FC<GameHudProps> = ({
               </div>
             </div>
 
-            <p className="text-xs text-[#a9bccf] leading-relaxed mb-3">
-              {status.metrics.landedClean
-                ? `All four wheels touched down clean! Soft landing speed ${status.metrics.touchdownSpeedFtS} ft/s banked with bonus points.`
-                : status.metrics.crashReason}
-            </p>
+            <div
+              role="status"
+              aria-live="polite"
+              className={`mb-3 rounded-md border px-3 py-2.5 ${
+                status.metrics.landedClean
+                  ? 'border-emerald-400/35 bg-emerald-400/[0.07]'
+                  : 'border-[#ff5454]/40 bg-[#ff2a2a]/[0.07]'
+              }`}
+            >
+              <span
+                className={`block text-[9px] font-mono-tech tracking-[0.18em] uppercase ${
+                  status.metrics.landedClean ? 'text-emerald-300' : 'text-[#ff8a8a]'
+                }`}
+              >
+                {status.metrics.landedClean ? 'TOUCHDOWN VERIFIED' : 'WHY THE RUN ENDED'}
+              </span>
+              <p className="mt-1 text-xs leading-relaxed text-[#d5e0ed] break-words">
+                {status.metrics.landedClean
+                  ? `All four wheels touched down clean. Sink speed: ${status.metrics.touchdownSpeedFtS} ft/s.`
+                  : status.metrics.crashReason || 'Landing criteria were not met.'}
+              </p>
+              <div className="mt-2 flex items-center justify-between gap-2 border-t border-white/10 pt-2 text-[9px] font-mono-tech tracking-wider">
+                <span className="text-[#8297b2]">TOUCHDOWN SINK SPEED</span>
+                <span className={`font-bold ${
+                  status.metrics.touchdownSpeedFtS <= 39 ? 'text-emerald-300' : 'text-[#ff8a8a]'
+                }`}>
+                  {status.metrics.touchdownSpeedFtS} FT/S
+                  <span className="ml-1 font-normal text-[#8297b2]">/ TARGET ≤39</span>
+                </span>
+              </div>
+            </div>
 
             {/* 8-Metric Grid matching Screenshot 4 */}
             <div className="grid grid-cols-2 border border-[#1f2f42] divide-x divide-y divide-[#1f2f42] text-xs font-mono-tech mb-3 bg-[#080d16]/60">

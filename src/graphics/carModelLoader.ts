@@ -25,34 +25,36 @@ export const CAR_MODEL_SCALE = 1.35;
 const WHEEL_SPIN_AXIS = new THREE.Vector3(1, 0, 0);
 
 /**
- * Asynchronously loads and configures the high-fidelity Tesla Roadster GLB model.
- * Inspects hierarchy for chassis meshes, 4 individual animated wheels, and thruster nozzle anchors.
+ * Loads and configures the high-fidelity Roadster GLB model.
+ * Paint materials are upgraded to MeshPhysicalMaterial so clearcoat and
+ * environment reflections can be used when the renderer supplies an environment.
  */
 export async function loadRoadsterModel(
   modelUrl: string = '/models/roadster.glb',
   onProgress?: (event: ProgressEvent) => void
 ): Promise<LoadedRoadsterModel> {
   const loader = new GLTFLoader();
-
   const gltf = await loader.loadAsync(modelUrl, onProgress);
   const root = new THREE.Group();
   root.name = 'RoadsterModelRoot';
 
   const sceneObj = gltf.scene;
   root.add(sceneObj);
-
-  // Apply scale to match existing imperial game units (~14.5 ft long, 6.2 ft wide)
-  sceneObj.scale.set(CAR_MODEL_SCALE, CAR_MODEL_SCALE, CAR_MODEL_SCALE);
+  sceneObj.scale.setScalar(CAR_MODEL_SCALE);
 
   const bodyMeshes: THREE.Mesh[] = [];
   const paintMaterials: THREE.MeshStandardMaterial[] = [];
   const wheels: RoadsterWheel[] = [];
   const nozzleAnchors: THREE.Object3D[] = [];
 
-  // Identify Roadster root child (contains the car nodes)
+  // Keep track of both source and replacement resources for safe disposal.
+  const geometriesToDispose = new Set<THREE.BufferGeometry>();
+  const materialsToDispose = new Set<THREE.Material>();
+  const processedMaterials = new Set<THREE.Material>();
+  const materialReplacements = new Map<THREE.Material, THREE.MeshPhysicalMaterial>();
+
   const carObject = sceneObj.getObjectByName('Roadster') || sceneObj;
 
-  // Identify 4 animated wheel nodes and store their rest quaternions
   const wheelNames = ['Wheel_FL', 'Wheel_FR', 'Wheel_RL', 'Wheel_RR'];
   wheelNames.forEach((name) => {
     const wheelNode = sceneObj.getObjectByName(name);
@@ -65,94 +67,169 @@ export async function loadRoadsterModel(
     }
   });
 
-  // Identify 4 rear cold-gas thruster nozzle anchors
   for (let i = 1; i <= 4; i++) {
     const anchor = sceneObj.getObjectByName(`NozzleAnchor_${i}`);
-    if (anchor) {
-      nozzleAnchors.push(anchor);
-    }
+    if (anchor) nozzleAnchors.push(anchor);
   }
 
-  // Traverse meshes to configure materials, shadows, and collect paint materials
-  const processedMaterials = new Set<THREE.Material>();
+  const configureMaterial = (
+    source: THREE.Material,
+    meshName: string
+  ): THREE.Material => {
+    materialsToDispose.add(source);
+
+    const existingReplacement = materialReplacements.get(source);
+    if (existingReplacement) return existingReplacement;
+    if (processedMaterials.has(source)) return source;
+    processedMaterials.add(source);
+
+    if (!(source instanceof THREE.MeshStandardMaterial)) return source;
+
+    const mat = source;
+    const materialName = `${mat.name} ${meshName}`;
+
+    // Silver body paint: use a physical clearcoat layer for automotive gloss.
+    if (/paint|body[_ -]?shell|chassis[_ -]?paint/i.test(materialName)) {
+      const physical = new THREE.MeshPhysicalMaterial();
+      physical.copy(mat as THREE.MeshPhysicalMaterial);
+      physical.name = mat.name || 'Roadster_Silver_Paint';
+      physical.color.lerp(new THREE.Color(0xeaf0f5), 0.12);
+      physical.metalness = 0.76;
+      physical.roughness = 0.19;
+      physical.envMapIntensity = 1.75;
+      physical.clearcoat = 0.95;
+      physical.clearcoatRoughness = 0.12;
+      physical.reflectivity = 0.9;
+      physical.ior = 1.5;
+      physical.needsUpdate = true;
+
+      materialReplacements.set(source, physical);
+      materialsToDispose.add(physical);
+      paintMaterials.push(physical);
+      return physical;
+    }
+
+    // Keep glass dark, but make its reflections visible under scene lighting.
+    if (/glass|windshield|window|canopy/i.test(materialName)) {
+      mat.roughness = Math.min(mat.roughness, 0.1);
+      mat.metalness = Math.min(mat.metalness, 0.28);
+      mat.envMapIntensity = 1.55;
+      if (mat instanceof THREE.MeshPhysicalMaterial) {
+        mat.clearcoat = Math.max(mat.clearcoat, 0.55);
+        mat.clearcoatRoughness = 0.08;
+      }
+    }
+
+    // Tail lamps and headlamps remain visible in the night environment.
+    if (mat.name === 'Lamp_TailRed' || /TailRed/i.test(meshName)) {
+      mat.emissive.setHex(0xff1828);
+      mat.emissiveIntensity = 2.8;
+    }
+
+    if (
+      mat.name === 'Lamp_Headlamp' ||
+      mat.name === 'Lamp_DRL' ||
+      /Headlamp|DRL/i.test(meshName)
+    ) {
+      mat.emissive.setHex(0xf4faff);
+      mat.emissiveIntensity = 2.0;
+    }
+
+    // Metallic hardware gets crisp highlights without making the tyres shiny.
+    if (mat.name === 'Nozzle_Brass') {
+      mat.metalness = 0.92;
+      mat.roughness = 0.22;
+      mat.envMapIntensity = 1.45;
+    }
+
+    if (mat.name === 'Brake_Rotor') {
+      mat.metalness = 0.88;
+      mat.roughness = 0.32;
+      mat.envMapIntensity = 1.2;
+    }
+
+    if (/chrome|polished[_ -]?metal|trim/i.test(materialName)) {
+      mat.metalness = 0.9;
+      mat.roughness = 0.24;
+      mat.envMapIntensity = 1.45;
+    }
+
+    if (/tire|tyre|rubber/i.test(materialName)) {
+      mat.metalness = 0.02;
+      mat.roughness = 0.88;
+    }
+
+    // Retain the existing gold-tinted glazing appearance.
+    if (mat.name === 'Glass_GoldTint') {
+      mat.roughness = 0.07;
+      mat.metalness = 0.55;
+      mat.envMapIntensity = 1.45;
+      if (mat instanceof THREE.MeshPhysicalMaterial) {
+        mat.clearcoat = 0.7;
+        mat.clearcoatRoughness = 0.08;
+      }
+    }
+
+    return mat;
+  };
 
   sceneObj.traverse((obj) => {
-    if (obj instanceof THREE.Mesh) {
-      bodyMeshes.push(obj);
+    if (!(obj instanceof THREE.Mesh)) return;
 
-      // Enable shadow casting and receiving for realistic stadium lighting
-      obj.castShadow = true;
-      obj.receiveShadow = true;
+    bodyMeshes.push(obj);
+    obj.castShadow = true;
+    obj.receiveShadow = true;
 
-      const mats: THREE.Material[] = Array.isArray(obj.material) ? obj.material : [obj.material];
-      mats.forEach((mat) => {
-        if (!mat || processedMaterials.has(mat)) return;
-        processedMaterials.add(mat);
+    const sourceMaterials = Array.isArray(obj.material)
+      ? obj.material
+      : [obj.material];
+    const configuredMaterials = sourceMaterials.map((mat) =>
+      configureMaterial(mat, obj.name)
+    );
 
-        if (mat instanceof THREE.MeshStandardMaterial) {
-          // Identify pearlescent paint materials for color customization
-          if (mat.name === 'Paint_PearlWhite' || obj.name.includes('Paint')) {
-            paintMaterials.push(mat);
-            mat.roughness = 0.12;
-            mat.metalness = 0.82;
-          }
-
-          // Boost tail light emissive for night track presence
-          if (mat.name === 'Lamp_TailRed' || obj.name.includes('TailRed')) {
-            mat.emissive.setHex(0xff1828);
-            mat.emissiveIntensity = 3.5;
-          }
-
-          // Boost headlights and DRLs
-          if (mat.name === 'Lamp_Headlamp' || mat.name === 'Lamp_DRL') {
-            mat.emissive.setHex(0xf4faff);
-            mat.emissiveIntensity = 2.4;
-          }
-
-          // Enhance brake rotors and brass thrusters
-          if (mat.name === 'Nozzle_Brass') {
-            mat.metalness = 0.95;
-            mat.roughness = 0.25;
-          }
-
-          if (mat.name === 'Brake_Rotor') {
-            mat.metalness = 0.95;
-            mat.roughness = 0.35;
-          }
-
-          if (mat.name === 'Glass_GoldTint') {
-            mat.roughness = 0.04;
-            mat.metalness = 0.75;
-          }
-        }
-      });
+    if (Array.isArray(obj.material)) {
+      obj.material = configuredMaterials;
+    } else {
+      obj.material = configuredMaterials[0];
     }
+
+    geometriesToDispose.add(obj.geometry);
   });
 
-  // Color applicator function
   const applyCarColor = (color: CarColor) => {
     paintMaterials.forEach((mat) => {
       if (color === 'red') {
         mat.color.setHex(0xd81f2a);
-        mat.metalness = 0.88;
+        mat.metalness = 0.72;
         mat.roughness = 0.22;
+        mat.envMapIntensity = 1.5;
       } else if (color === 'black') {
-        mat.color.setHex(0x181a20);
-        mat.metalness = 0.92;
-        mat.roughness = 0.16;
+        mat.color.setHex(0x202329);
+        mat.metalness = 0.7;
+        mat.roughness = 0.2;
+        mat.envMapIntensity = 1.55;
       } else {
-        // Pearlescent silver/white
-        mat.color.setHex(0xf8fafc);
-        mat.metalness = 0.85;
-        mat.roughness = 0.12;
+        // Bright metallic silver rather than flat pure white.
+        mat.color.setHex(0xe3e9ef);
+        mat.metalness = 0.76;
+        mat.roughness = 0.19;
+        mat.envMapIntensity = 1.75;
       }
+
+      if (mat instanceof THREE.MeshPhysicalMaterial) {
+        mat.clearcoat = 0.95;
+        mat.clearcoatRoughness = color === 'black' ? 0.14 : 0.12;
+        mat.reflectivity = 0.9;
+        mat.ior = 1.5;
+      }
+
       mat.needsUpdate = true;
     });
   };
 
-  // Wheel animation state
+  // Wheel animation state.
   let totalWheelSpinAngle = 0;
-  const wheelRadius = 0.368 * CAR_MODEL_SCALE; // Effective scaled radius (~0.497 ft)
+  const wheelRadius = 0.368 * CAR_MODEL_SCALE;
   const tempQuat = new THREE.Quaternion();
 
   const spinWheels = (distanceDelta: number) => {
@@ -161,22 +238,27 @@ export async function loadRoadsterModel(
     tempQuat.setFromAxisAngle(WHEEL_SPIN_AXIS, totalWheelSpinAngle);
 
     for (let i = 0; i < wheels.length; i++) {
-      wheels[i].node.quaternion.copy(wheels[i].restQuaternion).multiply(tempQuat);
+      wheels[i].node.quaternion
+        .copy(wheels[i].restQuaternion)
+        .multiply(tempQuat);
     }
   };
 
   const dispose = () => {
     sceneObj.traverse((obj) => {
-      if (obj instanceof THREE.Mesh) {
-        obj.geometry?.dispose();
-        if (Array.isArray(obj.material)) {
-          obj.material.forEach((m) => m.dispose());
-        } else if (obj.material) {
-          obj.material.dispose();
-        }
+      if (obj instanceof THREE.Mesh && obj.geometry) {
+        geometriesToDispose.add(obj.geometry);
       }
     });
+
+    geometriesToDispose.forEach((geometry) => geometry.dispose());
+    materialsToDispose.forEach((material) => material.dispose());
     root.clear();
+
+    geometriesToDispose.clear();
+    materialsToDispose.clear();
+    materialReplacements.clear();
+    processedMaterials.clear();
   };
 
   return {

@@ -1,90 +1,379 @@
 @import "tailwindcss";
 
-@layer base {
-  :root {
-    --bg-dark: #050811;
-    --panel-dark: #0a0f18;
-    --neon-red: #ff2a2a;
-    --neon-pink: #ff3880;
-    --neon-green: #34d399;
-  }
+/* -------------------------------------------------------------------------- */
+/* Roadster Loop — Night Run                                                  */
+/* Global layout, typography, mobile viewport handling and HUD polish         */
+/* Tailwind CSS v4                                                            */
+/* -------------------------------------------------------------------------- */
 
-  html, body, #root {
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    overflow: hidden !important;
-    background-color: var(--bg-dark);
-    color: #f1f6ff;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    touch-action: none !important;
-    -webkit-user-select: none;
-    user-select: none;
-    -webkit-touch-callout: none;
-  }
-
-  /* Completely remove scrollbars across all browsers */
-  * {
-    scrollbar-width: none !important;
-    -ms-overflow-style: none !important;
-  }
-  *::-webkit-scrollbar {
-    display: none !important;
-    width: 0 !important;
-    height: 0 !important;
-  }
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-condensed: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --font-orbitron: "Orbitron", ui-sans-serif, sans-serif;
+  --font-mono-tech: "DM Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
+:root {
+  color-scheme: dark;
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  --roadster-bg: #050811;
+  --roadster-panel: #0c121d;
+  --roadster-panel-raised: #101a29;
+  --roadster-border: #253952;
+  --roadster-red: #ff2a2a;
+  --roadster-pink: #ff3880;
+  --roadster-text: #f1f6ff;
+  --roadster-muted: #8a9bb5;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
+  background: var(--roadster-bg);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 320px;
+  height: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scrollbar-gutter: stable;
+}
+
+body {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--roadster-bg);
+  color: var(--roadster-text);
+  touch-action: pan-x pan-y;
+}
+
+#root {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--roadster-bg);
+}
+
+/* The App root is the single full-screen game viewport. */
+#root > main {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  min-width: 320px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  isolation: isolate;
+  background: var(--roadster-bg);
+}
+
+/* Three.js mount point: one canvas fills the viewport behind the HUD. */
+#root > main > div[ class ] {
+  min-width: 0;
+}
+
+#root > main > div.relative.cursor-crosshair {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#root canvas {
+  display: block;
+  max-width: 100%;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Renderer canvases are created dynamically by Three.js. */
+#root > main > div canvas {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  outline: none;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Typography and small reusable game-specific elements                       */
+/* -------------------------------------------------------------------------- */
+
 .font-mono-tech {
-  font-family: 'DM Mono', monospace;
+  font-family: "DM Mono", ui-monospace, SFMono-Regular, monospace;
+  font-variant-numeric: tabular-nums;
 }
 
 .font-condensed {
-  font-family: 'Barlow Condensed', 'Inter', sans-serif;
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
 }
 
 .font-orbitron {
-  font-family: 'Orbitron', 'Barlow Condensed', sans-serif;
+  font-family: "Orbitron", ui-sans-serif, sans-serif;
 }
 
-/* Red neon bar underline matching screenshots */
 .red-neon-bar {
-  height: 2px;
-  background: #ff2a2a;
-  box-shadow: 0 0 16px #ff2a2a, 0 0 32px rgba(255, 42, 42, 0.75);
+  display: block;
+  height: 3px;
+  min-height: 3px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff2a2a 0%, #ff3880 55%, rgba(255, 56, 128, 0.2) 100%);
+  box-shadow: 0 0 10px rgba(255, 42, 42, 0.5), 0 0 24px rgba(255, 56, 128, 0.2);
 }
 
-/* Green light glow */
-.green-light-glow {
-  background: #34d399;
-  box-shadow: 0 0 18px #34d399, 0 0 30px rgba(52, 211, 153, 0.85);
-}
-
-/* Red light glow */
-.red-light-glow {
-  background: #ff2a2a;
-  box-shadow: 0 0 18px #ff2a2a, 0 0 28px rgba(255, 42, 42, 0.8);
-}
-
-/* Circular gauge animations */
-.gauge-ring {
-  transition: stroke-dashoffset 0.12s ease-out, stroke 0.2s ease;
-}
-
-/* Custom key cap in tutorial */
 .key-cap {
   display: inline-flex;
+  min-width: 1.65rem;
+  min-height: 1.55rem;
   align-items: center;
   justify-content: center;
-  min-width: 26px;
-  height: 22px;
-  padding: 0 5px;
-  background: #141c28;
-  border: 1px solid rgba(180, 195, 215, 0.35);
-  border-radius: 4px;
-  font-family: 'DM Mono', monospace;
-  font-size: 11px;
-  color: #e2eaf5;
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+  padding: 0.12rem 0.4rem;
+  border: 1px solid #43536b;
+  border-bottom-width: 2px;
+  border-radius: 0.35rem;
+  background: linear-gradient(180deg, #1b2738, #0c1421);
+  color: #f1f6ff;
+  font-family: "DM Mono", monospace;
+  font-size: 0.7rem;
+  line-height: 1;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
+}
+
+.gauge-ring {
+  transition: stroke-dashoffset 100ms linear, stroke 160ms ease, filter 160ms ease;
+}
+
+.green-light-glow {
+  border: 1px solid rgba(167, 255, 199, 0.9);
+  background: #22e875;
+  box-shadow: 0 0 10px rgba(34, 232, 117, 0.85), 0 0 25px rgba(34, 232, 117, 0.45);
+}
+
+.red-light-glow {
+  border: 1px solid rgba(255, 172, 172, 0.9);
+  background: #ff3838;
+  box-shadow: 0 0 10px rgba(255, 42, 42, 0.85), 0 0 25px rgba(255, 42, 42, 0.45);
+}
+
+/* -------------------------------------------------------------------------- */
+/* HUD and touch interaction                                                  */
+/* -------------------------------------------------------------------------- */
+
+button,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  font: inherit;
+}
+
+button:focus-visible {
+  outline: 2px solid rgba(255, 90, 110, 0.95);
+  outline-offset: 3px;
+}
+
+/* Do not let the HUD itself block the 3D view; interactive controls opt in. */
+#root > main > .absolute.inset-0 {
+  min-width: 0;
+  min-height: 0;
+  padding-top: max(0.55rem, var(--safe-top));
+  padding-right: max(0.5rem, var(--safe-right));
+  padding-bottom: max(0.55rem, var(--safe-bottom));
+  padding-left: max(0.5rem, var(--safe-left));
+  overflow: hidden;
+}
+
+#root > main > .absolute.inset-0 button {
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+#root > main > .absolute.inset-0 button:active {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Steering and thrust buttons need uninterrupted pointer tracking. */
+#root button[aria-label="Rotate car left"],
+#root button[aria-label="Rotate car right"],
+#root button[aria-label="Launch or fire thrusters"],
+#root button[aria-label="Thrust"],
+#root button[aria-label="GO"] {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Modal scrolling and safe-area support                                      */
+/* -------------------------------------------------------------------------- */
+
+#root > main > .fixed.inset-0.z-50 {
+  max-width: 100vw;
+  max-height: 100vh;
+  max-height: 100dvh;
+  padding-top: max(0.75rem, var(--safe-top));
+  padding-right: max(0.75rem, var(--safe-right));
+  padding-bottom: max(0.75rem, var(--safe-bottom));
+  padding-left: max(0.75rem, var(--safe-left));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+#root > main > .fixed.inset-0.z-50 > div {
+  flex: 0 0 auto;
+  max-height: calc(100vh - var(--safe-top) - var(--safe-bottom) - 1.5rem);
+  max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 1.5rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #3b4b63 transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+#root > main > .fixed.inset-0.z-50 > div::-webkit-scrollbar {
+  width: 5px;
+}
+
+#root > main > .fixed.inset-0.z-50 > div::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #3b4b63;
+}
+
+/* Privacy/settings/tutorial/result overlays remain above the canvas and HUD. */
+#root > main > .fixed.inset-0.z-50,
+#root > main > .fixed.inset-0.z-40,
+#root > main > .fixed.inset-0.z-30 {
+  isolation: isolate;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Scrollbar styling for any intentionally scrollable content                 */
+/* -------------------------------------------------------------------------- */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #34445d transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: #34445d;
+  background-clip: padding-box;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Small phone layouts                                                        */
+/* -------------------------------------------------------------------------- */
+
+@media (max-width: 480px) {
+  #root > main > .absolute.inset-0 {
+    padding-right: max(6px, var(--safe-right));
+    padding-left: max(6px, var(--safe-left));
+  }
+
+  #root > main > .absolute.inset-0 > .flex.justify-between.items-start {
+    gap: 0.25rem;
+  }
+
+  #root > main > .absolute.inset-0 .font-condensed {
+    letter-spacing: -0.025em;
+  }
+
+  #root > main > .absolute.inset-0 button {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #root > main > .fixed.inset-0.z-50 {
+    align-items: flex-start;
+    padding-top: max(0.5rem, var(--safe-top));
+    padding-bottom: max(0.5rem, var(--safe-bottom));
+  }
+
+  #root > main > .fixed.inset-0.z-50 > div {
+    width: min(100%, 420px);
+    max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 1rem);
+  }
+}
+
+/* Short landscape phones: keep the bottom controls and modal actions in view. */
+@media (orientation: landscape) and (max-height: 520px) {
+  #root > main > .absolute.inset-0 {
+    padding-top: max(4px, var(--safe-top));
+    padding-bottom: max(4px, var(--safe-bottom));
+  }
+
+  #root > main > .fixed.inset-0.z-50 {
+    align-items: flex-start;
+    padding-top: max(6px, var(--safe-top));
+    padding-bottom: max(6px, var(--safe-bottom));
+  }
+
+  #root > main > .fixed.inset-0.z-50 > div {
+    max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 12px);
+  }
+}
+
+/* Respect reduced-motion preferences without disabling important game cues. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -178,7 +178,10 @@ export function buildUpgradedStage({
   const sharedBoxGeo = new THREE.BoxGeometry(1, 1, 1);
   disposables.push(sharedBoxGeo);
 
-  const halfWidth = roadWidth / 2; // 10 ft
+  // Keep the ramp and both runway sections on one consistent, wider footprint.
+  // A 24 ft minimum gives the car more visible shoulder room without changing physics.
+  const stageRoadWidth = Math.max(roadWidth, 24);
+  const halfWidth = stageRoadWidth / 2; // 12 ft minimum
 
   // =========================================================================
   // 1. MATERIALS SETUP
@@ -199,15 +202,27 @@ export function buildUpgradedStage({
 
   // Painted Road Markings Material (polygonOffset prevents z-fighting with asphalt)
   const paintedStripeMat = new THREE.MeshStandardMaterial({
-    color: 0xf4f7fa,
-    emissive: 0x334155,
-    roughness: 0.62,
-    metalness: 0.05,
+    color: 0xffffff,
+    emissive: 0x596575,
+    roughness: 0.58,
+    metalness: 0.03,
     polygonOffset: true,
     polygonOffsetFactor: -1.2,
     polygonOffsetUnits: -1.2,
   });
   disposables.push(paintedStripeMat);
+
+  // Amber guidance lines make the touchdown corridor easier to read at night.
+  const touchdownGuideMat = new THREE.MeshStandardMaterial({
+    color: 0xffd36a,
+    emissive: 0x51370d,
+    roughness: 0.55,
+    metalness: 0.02,
+    polygonOffset: true,
+    polygonOffsetFactor: -1.5,
+    polygonOffsetUnits: -1.5,
+  });
+  disposables.push(touchdownGuideMat);
 
   // Structural Steel for Trusses and Tower
   const steelMat = new THREE.MeshStandardMaterial({
@@ -243,9 +258,9 @@ export function buildUpgradedStage({
 
   // Asphalt Runway & Landing Road Material
   const asphaltMat = new THREE.MeshStandardMaterial({
-    color: 0x8a8a94, // Reference road tone under stadium floods
-    roughness: 0.58,
-    metalness: 0.12,
+    color: 0x555e6a, // Darker asphalt gives the runway markings stronger contrast
+    roughness: 0.74,
+    metalness: 0.04,
   });
   disposables.push(asphaltMat);
 
@@ -433,7 +448,7 @@ export function buildUpgradedStage({
   stageGroup.add(rampStripeMesh);
 
   // 4. Concrete Apron Pad at Ramp Foot (x = -84 to -76 ft)
-  const padGeo = new THREE.BoxGeometry(10, 0.12, roadWidth + 3.0);
+  const padGeo = new THREE.BoxGeometry(14, 0.12, stageRoadWidth + 3.0);
   disposables.push(padGeo);
   const rampPad = new THREE.Mesh(padGeo, deckShellMat);
   rampPad.name = 'RampApronPad';
@@ -627,9 +642,9 @@ export function buildUpgradedStage({
   // 4. RUNWAY & LANDING TRACK VISUAL OVERHAUL
   // =========================================================================
 
-  // 1. Approach Runway (x = -300 to -80 ft, length 220, centered at x = -190)
+  // 1. Approach Runway (x = -300 to -80 ft, flush with the ramp foot at x = -80)
   const approachLength = 220;
-  const approachGeo = new THREE.BoxGeometry(approachLength, 0.25, roadWidth);
+  const approachGeo = new THREE.BoxGeometry(approachLength, 0.25, stageRoadWidth);
   disposables.push(approachGeo);
   const approachRoad = new THREE.Mesh(approachGeo, asphaltMat);
   approachRoad.name = 'ApproachRunwayRoad';
@@ -637,28 +652,30 @@ export function buildUpgradedStage({
   approachRoad.receiveShadow = true;
   stageGroup.add(approachRoad);
 
-  // 2. Large Landing Track (x = 0 to 650 ft, length 650, centered at x = 325)
+  // 2. Landing Track (x = 0 to 650 ft, directly below the ramp exit).
+  // Keep the runway inside the existing stadium ground footprint.
   const landingLength = 650;
-  const landingGeo = new THREE.BoxGeometry(landingLength, 0.25, roadWidth);
+  const landingGeo = new THREE.BoxGeometry(landingLength, 0.25, stageRoadWidth);
   disposables.push(landingGeo);
   const landingRoad = new THREE.Mesh(landingGeo, asphaltMat);
   landingRoad.name = 'LandingTrackRoad';
-  landingRoad.position.set(325, 0.12, 0);
+  landingRoad.position.set(landingLength / 2, 0.12, 0);
   landingRoad.receiveShadow = true;
   stageGroup.add(landingRoad);
 
   // 3. Concrete Curbs / Gutters along runway and landing road
   const curbMat = deckShellMat;
-  const curbGeo = new THREE.BoxGeometry(approachLength + landingLength + 80, 0.32, 0.5);
+  const curbLength = approachLength + landingLength + 80;
+  const curbGeo = new THREE.BoxGeometry(curbLength, 0.32, 0.5);
   disposables.push(curbGeo);
 
   const leftCurb = new THREE.Mesh(curbGeo, curbMat);
-  leftCurb.position.set(175, 0.16, -halfWidth - 0.25);
+  leftCurb.position.set((landingLength - 300) / 2, 0.16, -halfWidth - 0.25);
   leftCurb.receiveShadow = true;
   stageGroup.add(leftCurb);
 
   const rightCurb = new THREE.Mesh(curbGeo, curbMat);
-  rightCurb.position.set(175, 0.16, halfWidth + 0.25);
+  rightCurb.position.set((landingLength - 300) / 2, 0.16, halfWidth + 0.25);
   rightCurb.receiveShadow = true;
   stageGroup.add(rightCurb);
 
@@ -666,8 +683,8 @@ export function buildUpgradedStage({
   // 5. ROAD MARKINGS & RED LED EDGE RAILS
   // =========================================================================
 
-  // Dashed White Centerline Stripes (z = 0, length 4.0 ft, spacing 8.0 ft)
-  const dashGeo = new THREE.BoxGeometry(4.0, 0.02, 0.5);
+  // Dashed White Centerline Stripes (longer, brighter and visible down the full runway)
+  const dashGeo = new THREE.BoxGeometry(5.0, 0.02, 0.65);
   disposables.push(dashGeo);
 
   // Runway Dashes
@@ -678,15 +695,15 @@ export function buildUpgradedStage({
     stageGroup.add(dash);
   }
 
-  // Landing Track Dashes
-  for (let x = 8; x < 640; x += 8) {
+  // Landing Track Dashes — continue to the extended runway end.
+  for (let x = 8; x < landingLength - 4; x += 10) {
     const dash = new THREE.Mesh(dashGeo, paintedStripeMat);
     dash.position.set(x, 0.26, 0);
     dash.receiveShadow = true;
     stageGroup.add(dash);
   }
 
-  // Solid White Outer Boundary Lines (z = ±8.6 ft)
+  // Solid White Outer Boundary Lines, inset 1.4 ft from each runway edge.
   const edgeStripeGeoApproach = new THREE.BoxGeometry(approachLength, 0.02, 0.35);
   disposables.push(edgeStripeGeoApproach);
   for (const z of [-halfWidth + 1.4, halfWidth - 1.4]) {
@@ -695,16 +712,16 @@ export function buildUpgradedStage({
     stageGroup.add(stripe);
   }
 
-  const edgeStripeGeoLanding = new THREE.BoxGeometry(landingLength, 0.02, 0.35);
+  const edgeStripeGeoLanding = new THREE.BoxGeometry(landingLength, 0.025, 0.45);
   disposables.push(edgeStripeGeoLanding);
   for (const z of [-halfWidth + 1.4, halfWidth - 1.4]) {
     const stripe = new THREE.Mesh(edgeStripeGeoLanding, paintedStripeMat);
-    stripe.position.set(325, 0.26, z);
+    stripe.position.set(landingLength / 2, 0.26, z);
     stageGroup.add(stripe);
   }
 
   // Painted Start Line (x = -250 ft)
-  const startLineGeo = new THREE.BoxGeometry(1.2, 0.02, roadWidth - 1.8);
+  const startLineGeo = new THREE.BoxGeometry(1.2, 0.02, stageRoadWidth - 1.8);
   disposables.push(startLineGeo);
   const startLine = new THREE.Mesh(startLineGeo, paintedStripeMat);
   startLine.position.set(-250, 0.26, 0);
@@ -712,13 +729,23 @@ export function buildUpgradedStage({
 
   // Landing Zone Target Area Markings (x = 200 to 340 ft)
   // Transverse touchdown distance bars
-  const touchBarGeo = new THREE.BoxGeometry(1.4, 0.03, roadWidth - 2.8);
+  const touchBarGeo = new THREE.BoxGeometry(1.6, 0.03, stageRoadWidth - 2.8);
   disposables.push(touchBarGeo);
   for (let lzX = 200; lzX <= 340; lzX += 20) {
     const bar = new THREE.Mesh(touchBarGeo, paintedStripeMat);
     bar.position.set(lzX, 0.265, 0);
     bar.receiveShadow = true;
     stageGroup.add(bar);
+  }
+
+  // Amber longitudinal guides outline the central touchdown corridor (x = 200 to 340 ft).
+  const touchdownGuideGeo = new THREE.BoxGeometry(140, 0.025, 0.18);
+  disposables.push(touchdownGuideGeo);
+  for (const z of [-5.5, 5.5]) {
+    const guide = new THREE.Mesh(touchdownGuideGeo, touchdownGuideMat);
+    guide.position.set(270, 0.262, z);
+    guide.receiveShadow = true;
+    stageGroup.add(guide);
   }
 
   // Distance Threshold Chevrons / Boxes at x = 240 and x = 280 ft
@@ -732,14 +759,14 @@ export function buildUpgradedStage({
     }
   }
 
-  // Red Horizon Stop Line across the end of landing track (x = 645 ft)
-  const stopLineGeo = new THREE.BoxGeometry(1.5, 0.04, roadWidth);
+  // Red Horizon Stop Line across the end of landing track (x = 895 ft)
+  const stopLineGeo = new THREE.BoxGeometry(1.5, 0.04, stageRoadWidth);
   disposables.push(stopLineGeo);
   const stopLine = new THREE.Mesh(stopLineGeo, redLedMat);
-  stopLine.position.set(645, 0.27, 0);
+  stopLine.position.set(landingLength - 5, 0.27, 0);
   stageGroup.add(stopLine);
 
-  // Continuous Glowing Red LED Edge Strips along the outer lips (z = ±9.85 ft)
+  // Continuous Glowing Red LED Edge Strips along both outer runway edges.
   const approachLedGeo = new THREE.BoxGeometry(approachLength, 0.12, 0.25);
   disposables.push(approachLedGeo);
   for (const z of [-halfWidth + 0.15, halfWidth - 0.15]) {
@@ -752,7 +779,7 @@ export function buildUpgradedStage({
   disposables.push(landingLedGeo);
   for (const z of [-halfWidth + 0.15, halfWidth - 0.15]) {
     const led = new THREE.Mesh(landingLedGeo, redLedMat);
-    led.position.set(325, 0.27, z);
+    led.position.set(landingLength / 2, 0.27, z);
     stageGroup.add(led);
   }
 

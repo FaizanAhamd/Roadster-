@@ -1039,7 +1039,7 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
 
       return localWheels.map((w) => ({
         x: eng.x + w.lx * cosZ,
-        y: Math.max(0.26, eng.y + w.lx * sinZ),
+        y: eng.y + w.lx * sinZ,
         z: eng.z + w.lz,
       }));
     };
@@ -1395,7 +1395,7 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
 
         if (eng.carGroup) {
           eng.carGroup.position.set(eng.x, eng.y, eng.z);
-          eng.carGroup.rotation.z = -eng.angle;
+          eng.carGroup.rotation.z = eng.angle;
         }
 
         // Ring collection: 3 large thin glowing pink-red rings
@@ -1429,28 +1429,53 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
 
         // Real Lowest Geometry Ground Contact Check
         // Evaluates all extreme bounding vertices of the car 3D mesh rotated by car pitch
+        // Actual 4-wheel and body contact calculation
         const cosP = Math.cos(eng.angle);
         const sinP = Math.sin(eng.angle);
-        const contactOffsets = [
-          // Wheels bottom (radius 0.44 at pos.y = 0.44 -> local y = 0.00)
-          { dx: 1.95, dy: 0.0 },
-          { dx: -1.95, dy: 0.0 },
-          // Front nose and splitter
-          { dx: 3.4, dy: 0.22 },
-          { dx: 3.2, dy: 0.35 },
-          // Rear diffuser and bumper
-          { dx: -3.2, dy: 0.22 },
-          { dx: -3.0, dy: 0.35 },
-          // Roof and canopy
+
+        const ROAD_SURFACE_Y = 0.25;
+        const WHEEL_CONTACT_TOLERANCE_FT = 0.60;
+
+        const wheelBottomYs = getWheelContactPositions(eng)
+          .map((wheel) => wheel.y);
+
+        const lowestWheelY = Math.min(...wheelBottomYs);
+
+        const bodyContactOffsets = [
+          { dx: 3.4, dy: 0.22 },  // Front nose
+          { dx: 3.2, dy: 0.35 },  // Front splitter
+          { dx: -3.2, dy: 0.22 }, // Rear diffuser
+          { dx: -3.0, dy: 0.35 }, // Rear bumper
           { dx: -0.25, dy: 1.65 },
           { dx: 0.5, dy: 1.55 },
           { dx: -0.9, dy: 1.55 },
         ];
-        let lowestPointY = Infinity;
-        for (const pt of contactOffsets) {
-          const ptY = eng.y - pt.dx * sinP + pt.dy * cosP;
-          if (ptY < lowestPointY) lowestPointY = ptY;
+
+        let lowestBodyY = Infinity;
+
+        for (const pt of bodyContactOffsets) {
+          const pointY =
+            eng.y + pt.dx * sinP + pt.dy * cosP;
+
+          lowestBodyY = Math.min(lowestBodyY, pointY);
         }
+
+        const lowestPointY = Math.min(
+          lowestWheelY,
+          lowestBodyY
+        );
+
+        const bodyHitBeforeWheels =
+          lowestBodyY <= ROAD_SURFACE_Y &&
+          lowestBodyY < lowestWheelY - 0.02;
+
+        const allFourWheelsDown =
+          wheelBottomYs.length === 4 &&
+          wheelBottomYs.every(
+            (y) =>
+              y >= ROAD_SURFACE_Y - WHEEL_CONTACT_TOLERANCE_FT &&
+              y <= ROAD_SURFACE_Y + WHEEL_CONTACT_TOLERANCE_FT
+          );
 
         // Physical touchdown on road tarmac surface (y <= 0.25 ft) while sinking downward (vy < 0)
         if (lowestPointY <= 0.25 && eng.vy < 0 && !eng.runEnded) {
@@ -1465,7 +1490,29 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
           const tiltRad = Math.min(normAngle, Math.PI * 2 - normAngle);
           const tiltDeg = Math.round((tiltRad * 180) / Math.PI);
 
-          if (eng.touchdownSpeed <= 39 && tiltDeg <= 25) {
+          // Landing requirements: all four wheels must contact the runway while
+          // roughly upright, with bounded rotation and landing speeds. The
+          // 8° tilt, 1.5 rad/s rotation and 80 mph horizontal caps are proposed
+          // gameplay thresholds — verify wheel geometry/runway level in next build.
+          const horizontalSpeedMph =
+            Math.abs(eng.vx) / 1.46667;
+
+          const landingFailureReason =
+            bodyHitBeforeWheels
+              ? 'BODY OR ROOF HIT BEFORE THE WHEELS'
+              : !allFourWheelsDown
+              ? 'ALL FOUR WHEELS DID NOT CONTACT THE RUNWAY'
+              : tiltDeg > 8
+              ? 'CAR WAS NOT UPRIGHT ENOUGH'
+              : Math.abs(eng.omega) > 1.5
+              ? 'ROTATION TOO FAST AT TOUCHDOWN'
+              : eng.touchdownSpeed > 39
+              ? 'VERTICAL LANDING SPEED EXCEEDED 39 FT/S'
+              : horizontalSpeedMph > 80
+              ? 'HORIZONTAL LANDING SPEED EXCEEDED 80 MPH'
+              : '';
+
+          if (!landingFailureReason) {
             // SUCCESS: CLEAN LANDING!
             eng.landingClean = true;
             eng.rolloutTimer = 0;
@@ -1573,7 +1620,7 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
               tiltAngleDeg: tiltDeg,
               landedClean: false,
               score: breakdown.total, // Rings only on crash!
-              crashReason: getCrashExplanation(eng.touchdownSpeed, eng.angle, eng.ringsCollected),
+              crashReason: landingFailureReason,
               breakdown,
               trajectory: eng.trajectoryPoints.map((point) => ({ ...point })),
             };
@@ -1657,7 +1704,7 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
         ];
         let tumbleLowestY = Infinity;
         for (const pt of contactOffsets) {
-          const ptY = eng.y - pt.dx * cSinP + pt.dy * cCosP;
+          const ptY = eng.y + pt.dx * cSinP + pt.dy * cCosP;
           if (ptY < tumbleLowestY) tumbleLowestY = ptY;
         }
 
@@ -1681,7 +1728,7 @@ export const GameCanvas = React.forwardRef<GameCanvasHandle, GameCanvasProps>(
 
         if (eng.carGroup) {
           eng.carGroup.position.set(eng.x, eng.y, eng.z);
-          eng.carGroup.rotation.z = -eng.angle;
+          eng.carGroup.rotation.z = eng.angle;
         }
 
         updateCrashParticles(dt);
