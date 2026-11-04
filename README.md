@@ -1,20 +1,52 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# 🏎️ Roadster Loop — Night Run
 
-# Run and deploy your AI Studio app
+A 3D sports car stunt game where you launch off ramps, perform mid-air tricks and enjoy a cinematic night-driving experience.
 
-This contains everything you need to run your app locally.
+🌐 **Play Now:** https://roadster-iota.vercel.app/
 
-View your app in AI Studio: https://ai.studio/apps/ba533690-06f5-4d09-a10b-41d1343269a9
+## Features
+
+- 3D sports car with realistic visuals.
+- Ramp jumps, flips and stunts.
+- Multiple camera angles and viewing modes.
+- Thruster controls and ring collectibles.
+- Live speed, altitude and score tracking.
+- Multiple car colors.
+- High and Low graphics settings.
+- Pause, restart and sound controls.
+- Flight report and score sharing.
+
+## Controls
+
+| Key | Action |
+|---|---|
+| Space | Launch / Thruster |
+| A / D | Rotate |
+| Arrow Keys | Steering |
+| P / Esc | Pause |
+| Enter | Restart |
+
+## Built With
+
+React · TypeScript · Three.js · Vite · Tailwind CSS
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
+git clone https://github.com/FaizanAhamd/Roadster-.git
+cd Roadster-
+npm install
+npm run dev
 
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+For a production build:
+
+npm run build
+
+
+## Developer
+
+**Faizan Ahmad**
+
+GitHub: https://github.com/FaizanAhamd
+
+⭐ If you enjoy the game, feel free to star the repository!
